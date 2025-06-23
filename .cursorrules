@@ -1,0 +1,157 @@
+You are an expert in TypeScript, React Native, Expo, Firebase, and Mobile UI development with RAG integration.
+
+Code Style and Structure
+- Write concise, technical TypeScript code with accurate examples.
+- Use functional and declarative programming patterns; avoid classes.
+- Prefer iteration and modularization over code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+- Structure files: exported component, subcomponents, helpers, static content, types.
+- Follow Expo's official documentation for setting up and configuring your projects: https://docs.expo.dev/
+
+Naming Conventions
+- Use lowercase with dashes for directories (e.g., components/auth-wizard).
+- Favor named exports for components.
+- Use PascalCase for component names (e.g., CraftPost, ToolInventory).
+- Use camelCase for variable and function names (e.g., isFetchingCrafts, handleRAGGeneration).
+
+TypeScript Usage
+- Use TypeScript for all code; prefer interfaces over types.
+- Avoid enums; use maps instead.
+- Use functional components with TypeScript interfaces.
+- Use strict mode in TypeScript for better type safety.
+- Define proper types for Firebase data models and RAG responses.
+
+Syntax and Formatting
+- Use the "function" keyword for pure functions.
+- Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
+- Use declarative JSX.
+- Use Prettier for consistent code formatting.
+
+UI and Styling
+- Use Expo's built-in components for common UI patterns and layouts.
+- Implement responsive design with Flexbox and Expo's useWindowDimensions for screen size adjustments.
+- Use styled-components or NativeWind for component styling with craft-themed design.
+- Implement dark mode support using Expo's useColorScheme.
+- Ensure high accessibility (a11y) standards using ARIA roles and native accessibility props.
+- Leverage react-native-reanimated and react-native-gesture-handler for performant animations and gestures.
+- Design with craftsman aesthetics: earth tones, wood textures, authentic materials representation.
+
+Safe Area Management
+- Use SafeAreaProvider from react-native-safe-area-context to manage safe areas globally in your app.
+- Wrap top-level components with SafeAreaView to handle notches, status bars, and other screen insets on both iOS and Android.
+- Use SafeAreaScrollView for scrollable content to ensure it respects safe area boundaries.
+- Avoid hardcoding padding or margins for safe areas; rely on SafeAreaView and context hooks.
+
+Performance Optimization
+- Minimize the use of useState and useEffect; prefer context and reducers for state management.
+- Use Expo's AppLoading and SplashScreen for optimized app startup experience.
+- Optimize images: use WebP format where supported, include size data, implement lazy loading with expo-image.
+- Implement code splitting and lazy loading for non-critical components with React's Suspense and dynamic imports.
+- Profile and monitor performance using React Native's built-in tools and Expo's debugging features.
+- Avoid unnecessary re-renders by memoizing components and using useMemo and useCallback hooks appropriately.
+- Optimize RAG processing with proper caching and debouncing.
+
+Navigation
+- Use react-navigation for routing and navigation; follow its best practices for stack, tab, and drawer navigators.
+- Leverage deep linking and universal links for better user engagement and navigation flow.
+- Use dynamic routes with expo-router for better navigation handling.
+- Implement craft-specific navigation patterns (e.g., technique discovery, project timeline).
+
+State Management
+- Use Zustand for global state management as specified in the architecture.
+- Leverage react-query for data fetching and caching; avoid excessive API calls.
+- Handle URL search parameters using libraries like expo-linking.
+- Implement proper state management for user tool inventory and skill progression.
+
+Firebase Integration
+- Use Firebase Auth with custom claims for authentication.
+- Implement Firestore for user data, content metadata, and craft knowledge storage.
+- Use Firebase Storage for media files (photos, videos of craft processes).
+- Implement Cloud Functions for RAG processing pipeline.
+- Follow Firebase security rules best practices for craft content and user data.
+- Use Firebase Analytics to track craft learning progression and content engagement.
+
+RAG Implementation
+- Integrate OpenAI GPT-4 API for intelligent content generation.
+- Implement Pinecone vector database for semantic search of craft knowledge.
+- Create proper error handling for RAG API calls with fallback content.
+- Implement caching strategies for frequently accessed craft knowledge.
+- Use proper typing for RAG responses and knowledge base queries.
+- Implement context-aware content generation based on user's craft specialization.
+
+Error Handling and Validation
+- Use Zod for runtime validation and error handling.
+- Implement proper error logging using Sentry or a similar service.
+- Prioritize error handling and edge cases:
+  - Handle errors at the beginning of functions.
+  - Use early returns for error conditions to avoid deeply nested if statements.
+  - Avoid unnecessary else statements; use if-return pattern instead.
+  - Implement global error boundaries to catch and handle unexpected errors.
+- Use expo-error-reporter for logging and reporting errors in production.
+- Handle RAG API failures gracefully with user-friendly messages.
+
+Testing
+- Write unit tests using Jest and React Native Testing Library.
+- Implement integration tests for critical user flows using Detox.
+- Use Expo's testing tools for running tests in different environments.
+- Consider snapshot testing for components to ensure UI consistency.
+- Test RAG integration with mock responses for reliable testing.
+
+Security
+- Sanitize user inputs to prevent XSS attacks.
+- Use react-native-encrypted-storage for secure storage of sensitive data.
+- Ensure secure communication with APIs using HTTPS and proper authentication.
+- Use Expo's Security guidelines to protect your app: https://docs.expo.dev/guides/security/
+- Implement proper API key management for OpenAI and Pinecone.
+- Secure user-generated craft content and personal tool inventory data.
+
+Camera and Media Handling
+- Use Expo Camera API for craft process documentation.
+- Implement Expo AV for video processing and timelapse creation.
+- Optimize media handling for craft documentation (before/after shots, process videos).
+- Implement proper permissions handling for camera and media library access.
+- Use expo-image-picker for gallery selection with craft-specific filtering.
+
+Internationalization (i18n)
+- Use react-native-i18n or expo-localization for internationalization and localization.
+- Support multiple languages and RTL layouts.
+- Ensure text scaling and font adjustments for accessibility.
+- Consider regional craft terminology and cultural variations.
+
+Key Conventions for SnapCraft
+1. Rely on Expo's managed workflow for streamlined development and deployment.
+2. Prioritize Mobile Web Vitals (Load Time, Jank, and Responsiveness).
+3. Use expo-constants for managing environment variables and configuration.
+4. Use expo-permissions to handle device permissions gracefully.
+5. Implement expo-updates for over-the-air (OTA) updates.
+6. Follow Expo's best practices for app deployment and publishing: https://docs.expo.dev/distribution/introduction/
+7. Ensure compatibility with iOS and Android by testing extensively on both platforms.
+8. Implement craft-specific features like tool inventory management and skill progression tracking.
+9. Design for process-focused content creation and documentation.
+10. Prioritize authentic craft community values and traditional knowledge preservation.
+
+Educational Approach for New Mobile Developers
+- Provide comprehensive explanations including what, why, and how for each implementation
+- Explain mobile-specific concepts that differ from web development (bridge architecture, native modules, platform differences)
+- Include trade-offs and alternative approaches when relevant
+- Add learning callouts using 📚 MOBILE CONCEPT: format for key mobile development concepts
+- Recognize learning questions marked with 🎓 LEARNING QUESTION: and provide detailed educational responses
+- Always explain the mobile development context and patterns being used
+- Break down complex mobile concepts into digestible explanations
+- Reference official documentation and best practices for deeper learning
+
+Craft-Specific Features
+- Implement tool inventory management with local storage and cloud sync.
+- Create skill progression tracking with milestone achievements.
+- Design for long-form content consumption (20+ minute craft videos).
+- Implement technique cross-referencing and knowledge bridging.
+- Support for traditional craft terminology and cultural context.
+- Design for outdoor/workshop usage with offline capabilities.
+
+API Documentation
+- Use Expo's official documentation for setting up and configuring your projects: https://docs.expo.dev/
+- Follow Firebase documentation for backend integration: https://firebase.google.com/docs
+- Reference OpenAI API documentation for RAG implementation: https://platform.openai.com/docs
+- Use Pinecone documentation for vector database integration: https://docs.pinecone.io/
+
+Refer to Expo's documentation for detailed information on Views, Blueprints, and Extensions for best practices. 

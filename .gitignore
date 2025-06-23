@@ -1,15 +1,20 @@
+# SnapCraft - RAG-Enhanced Social Platform for Craftsmen
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# Dependencies
 node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-# Expo
+# Expo & React Native
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+.metro-health-check*
 
-# Native
+# Native builds
 .kotlin/
 *.orig.*
 *.jks
@@ -17,21 +22,84 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
+android/app/debug.keystore
+ios/build/
+android/build/
+android/app/build/
 
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
+# Environment variables & secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env*.local
 
-# typescript
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+.firebaserc
+
+# API Keys & Credentials (SnapCraft specific)
+# Never commit these!
+openai-api-key.txt
+pinecone-api-key.txt
+firebase-admin-key.json
+service-account-key.json
+
+# IDE & Editors
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# TypeScript
 *.tsbuildinfo
+.tscache/
+
+# Testing
+coverage/
+.nyc_output/
+jest-coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Build artifacts
+build/
+*.tgz
+*.tar.gz
+
+# Certificate files
+*.pem
+*.crt
+*.cert
+
+# Local development
+.tool-versions
