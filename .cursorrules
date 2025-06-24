@@ -154,4 +154,14 @@ API Documentation
 - Reference OpenAI API documentation for RAG implementation: https://platform.openai.com/docs
 - Use Pinecone documentation for vector database integration: https://docs.pinecone.io/
 
-Refer to Expo's documentation for detailed information on Views, Blueprints, and Extensions for best practices. 
+Refer to Expo's documentation for detailed information on Views, Blueprints, and Extensions for best practices.
+
+Development Progress Tracking
+- ALWAYS update DEVELOPMENT_CHECKLIST.txt when completing tasks or implementing features
+- Change ⏳ (pending) to ✅ (completed) for finished items
+- Update the "Last Updated" date at the top of the checklist
+- Add new items to appropriate sections when discovering additional requirements
+- Move items between phases as priorities change
+- Update "CURRENT PRIORITY ITEMS" section to reflect immediate next steps
+- Add notes about implementation decisions or issues encountered
+- Maintain the checklist as the single source of truth for project progress 
