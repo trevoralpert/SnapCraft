@@ -1,0 +1,1 @@
+export { default as KnowledgeBaseScreen } from './KnowledgeBaseScreen'; 

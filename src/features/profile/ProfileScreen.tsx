@@ -39,9 +39,10 @@ const skillLevels: { key: SkillLevel; label: string; description: string }[] = [
 ];
 
 export function ProfileScreen() {
-  const { user, setUser, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
   
   // Debug logging (can be removed in production)
+  const isAuthenticated = !!user;
   React.useEffect(() => {
     console.log('🔍 ProfileScreen - Auth State:', { 
       user: user ? { id: user.id, email: user.email, displayName: user.displayName } : null, 
@@ -105,7 +106,7 @@ export function ProfileScreen() {
       };
 
       await AuthService.updateUserProfile(updatedUser);
-      setUser(updatedUser);
+      // Note: User state will be updated by the auth listener
       setIsEditing(false);
       // Use web-compatible success notification
       if (typeof window !== 'undefined' && window.alert) {

@@ -8,6 +8,17 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './config';
+
+// Type assertion helpers for Firebase instances
+const getAuth = () => {
+  if (!auth) throw new Error('Firebase Auth not initialized');
+  return auth;
+};
+
+const getDb = () => {
+  if (!db) throw new Error('Firestore not initialized');
+  return db;
+};
 import { AuthUser, User, CraftSpecialization, SkillLevel } from '../../shared/types';
 
 export class AuthService {
@@ -30,8 +41,12 @@ export class AuthService {
     craftSpecialization: CraftSpecialization[] = ['general'],
     skillLevel: SkillLevel = 'novice'
   ): Promise<AuthUser> {
+    if (!auth || !db) {
+      throw new Error('Firebase not initialized');
+    }
+    
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(getAuth(), email, password);
       const firebaseUser = userCredential.user;
 
       // Update display name
@@ -49,7 +64,7 @@ export class AuthService {
       };
 
       console.log('💾 Creating Firestore user document:', userData);
-      await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+      await setDoc(doc(getDb(), 'users', firebaseUser.uid), userData);
       console.log('✅ User document created successfully');
 
       return this.toAuthUser(firebaseUser);
@@ -62,7 +77,7 @@ export class AuthService {
   // Sign in existing user
   static async signIn(email: string, password: string): Promise<AuthUser> {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(getAuth(), email, password);
       return this.toAuthUser(userCredential.user);
     } catch (error) {
       console.error('Sign in error:', error);
@@ -73,7 +88,7 @@ export class AuthService {
   // Sign out user
   static async signOut(): Promise<void> {
     try {
-      await signOut(auth);
+      await signOut(getAuth());
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -84,7 +99,7 @@ export class AuthService {
   static async getUserData(uid: string): Promise<User | null> {
     try {
       console.log('🔍 Getting user data for UID:', uid);
-      const userDoc = await getDoc(doc(db, 'users', uid));
+      const userDoc = await getDoc(doc(getDb(), 'users', uid));
       console.log('📄 Firestore document exists:', userDoc.exists());
       
       if (userDoc.exists()) {
@@ -104,7 +119,7 @@ export class AuthService {
   // Update user data
   static async updateUserData(uid: string, userData: Partial<User>): Promise<void> {
     try {
-      await setDoc(doc(db, 'users', uid), userData, { merge: true });
+      await setDoc(doc(getDb(), 'users', uid), userData, { merge: true });
     } catch (error) {
       console.error('Update user data error:', error);
       throw error;
@@ -124,7 +139,7 @@ export class AuthService {
   // Set up auth state listener
   static onAuthStateChanged(callback: (user: User | null) => void) {
     console.log('🔧 Setting up Firebase auth state listener...');
-    return onAuthStateChanged(auth, async (firebaseUser) => {
+    return onAuthStateChanged(getAuth(), async (firebaseUser) => {
       console.log('🔥 Firebase auth state changed:', { 
         firebaseUser: firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : null 
       });
@@ -147,7 +162,7 @@ export class AuthService {
               joinedAt: new Date(),
             };
             
-            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+            await setDoc(doc(getDb(), 'users', firebaseUser.uid), userData);
             console.log('✅ Default user profile created');
           }
           
