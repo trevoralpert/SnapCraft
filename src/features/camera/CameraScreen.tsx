@@ -36,6 +36,7 @@ export default function CameraScreen({
   const [flash, setFlash] = useState<FlashMode>('off');
   const [isRecording, setIsRecording] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [mode, setMode] = useState<'picture' | 'video'>('picture');
   
   // Camera ref
   const cameraRef = useRef<CameraView>(null);
@@ -141,8 +142,10 @@ export default function CameraScreen({
         // Stop recording
         cameraRef.current.stopRecording();
         setIsRecording(false);
+        setMode('picture'); // Switch back to photo mode
       } else {
         // Start recording
+        setMode('video'); // Switch to video mode
         setIsRecording(true);
         const video = await cameraRef.current.recordAsync({
           maxDuration: 60, // 60 seconds max for craft documentation
@@ -227,7 +230,7 @@ export default function CameraScreen({
         style={styles.camera} 
         facing={facing}
         flash={flash}
-        mode="picture"
+        mode={mode}
       >
         {/* Header Controls */}
         <View style={styles.headerControls}>
@@ -306,7 +309,7 @@ export default function CameraScreen({
           {/* Mode Indicator */}
           <View style={styles.modeIndicator}>
             <Text style={styles.modeText}>
-              {isRecording ? 'Recording...' : 'Photo Mode'}
+              {isRecording ? 'Recording...' : mode === 'video' ? 'Video Mode' : 'Photo Mode'}
             </Text>
           </View>
         </View>
