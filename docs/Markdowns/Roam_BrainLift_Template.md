@@ -1,0 +1,38 @@
+- [[Craftsmen RAG Platform BrainLift]]
+  - [[Purpose]]
+    - Why this matters:
+      - Preserve cultural knowledge through AI
+      - Elevate artisanship via technology, not dilute it
+    - Mission Statement:
+      - Build a RAG-enhanced social platform to honor and support human-centered craft
+  - [[Arena]]
+    - Topic/Niche:
+      - Digital platforms for traditional artisans
+      - Use of retrieval-augmented generation in community platforms
+  - [[Curated Sources]]
+    - [[Source Title Example]]
+      - Insight: What did I learn?
+      - Why it matters: Why does this insight stand out?
+      - New Question: What does it make me curious about?
+  - [[Experts]]
+    - [[Expert Name]]
+      - Title/Role:
+      - Area of Focus:
+      - Why they matter to this project:
+      - Where to find them:
+  - [[SpikyPOVs]]
+    - Consensus: AI platforms simplify creation
+    - SpikyPOV: The best AI platforms elevate creative lineage and identity
+    - Supporting Evidence:
+    - Implication:
+  - [[Knowledge Tree]]
+    - #CulturalTransmission
+    - #RAGArchitecture
+    - #ArtisanEconomy
+    - #IdentityFlattening
+    - Related Concepts and Fields:
+  - [[Weekly Review]]
+    - 2025-06-23
+      - What insights stood out this week?
+      - Any new SpikyPOVs to explore?
+      - What’s unclear or needs more research?
