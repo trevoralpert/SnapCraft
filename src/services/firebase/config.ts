@@ -13,6 +13,10 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Check if we're in demo mode (using placeholder values)
+const isDemoMode = process.env.EXPO_PUBLIC_FIREBASE_API_KEY === 'demo-api-key' || 
+                   process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID === 'demo-project';
+
 // Validate Firebase configuration
 const validateFirebaseConfig = () => {
   const requiredKeys = [
@@ -32,35 +36,46 @@ const validateFirebaseConfig = () => {
       'Please check your .env file and ensure all Firebase keys are set.'
     );
   }
+  
+  if (isDemoMode) {
+    console.log('🎭 Running in DEMO MODE - Firebase features will be mocked');
+  }
 };
 
 // Initialize Firebase
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 try {
   validateFirebaseConfig();
   
-  // Initialize Firebase app (only once)
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
+  if (!isDemoMode) {
+    // Initialize Firebase app (only once) for real Firebase
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0]!;
+    }
+    
+    // Initialize Firebase services
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    
+    console.log('✅ Firebase initialized successfully');
   } else {
-    app = getApps()[0]!; // Non-null assertion since we checked length > 0
+    console.log('✅ Demo mode initialized - Firebase mocked');
   }
-  
-  // Initialize Firebase services
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  
-  console.log('✅ Firebase initialized successfully');
 } catch (error) {
   console.error('❌ Firebase initialization failed:', error);
-  throw error;
+  // Don't throw in demo mode, just log the error
+  if (!isDemoMode) {
+    throw error;
+  }
 }
 
-// Export Firebase services
-export { auth, db, storage };
+// Export Firebase services (will be null in demo mode)
+export { auth, db, storage, isDemoMode };
 export default app; 

@@ -8,6 +8,7 @@ import {
   Dimensions,
   SafeAreaView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
@@ -177,13 +178,22 @@ export default function MediaGallery({
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
           <Ionicons name="images-outline" size={64} color="#8B4513" />
-          <Text style={styles.permissionTitle}>Media Access Required</Text>
+          <Text style={styles.permissionTitle}>Gallery Access</Text>
           <Text style={styles.permissionMessage}>
-            SnapCraft needs access to your photo library to display your craft documentation.
+            {Platform.OS === 'web' 
+              ? "On web, use the camera's gallery button or image picker for photo selection."
+              : "SnapCraft needs access to your photo library to display your craft documentation."
+            }
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Access</Text>
-          </TouchableOpacity>
+          {Platform.OS !== 'web' ? (
+            <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+              <Text style={styles.permissionButtonText}>Grant Access</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.permissionButton} onPress={onClose}>
+              <Text style={styles.permissionButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
     );

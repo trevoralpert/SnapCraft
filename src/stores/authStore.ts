@@ -1,143 +1,125 @@
 import { create } from 'zustand';
 import { User } from '../shared/types';
 import { AuthService } from '../services/firebase/auth';
+import { isDemoMode } from '../services/firebase/config';
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
   error: string | null;
-}
-
-interface AuthActions {
-  setUser: (user: User | null) => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
-  logout: () => Promise<void>;
-  resetError: () => void;
+  signOut: () => Promise<void>;
   clearError: () => void;
-  initializeAuth: () => void;
+  initializeAuth: () => Promise<void>;
 }
 
-type AuthStore = AuthState & AuthActions;
-
-export const useAuthStore = create<AuthStore>((set, get) => ({
-  // Initial state
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: false,
-  isAuthenticated: false,
   error: null,
 
-  // Actions
-  setUser: (user) => {
-    set({
-      user,
-      isAuthenticated: !!user,
-      error: null,
-    });
-  },
-
-  setLoading: (isLoading) => {
-    set({ isLoading });
-  },
-
-  setError: (error) => {
-    set({ error, isLoading: false });
-  },
-
-  resetError: () => {
-    set({ error: null });
-  },
-
-  clearError: () => {
-    set({ error: null });
-  },
-
   signIn: async (email: string, password: string) => {
+    if (isDemoMode) {
+      // Demo mode - create mock user
+      set({ isLoading: true, error: null });
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate loading
+      const mockUser: User = {
+        id: 'demo-user-123',
+        email: email,
+        displayName: 'Demo Crafter',
+        craftSpecialization: ['woodworking', 'blacksmithing'],
+        skillLevel: 'journeyman',
+        bio: 'Demo user for testing SnapCraft features',
+        location: 'Demo Workshop',
+        joinedAt: new Date(),
+        toolInventory: [],
+      };
+      set({ user: mockUser, isLoading: false });
+      return;
+    }
+
     try {
       set({ isLoading: true, error: null });
-      
-      // Use real Firebase authentication
       const authUser = await AuthService.signIn(email, password);
       const userData = await AuthService.getUserData(authUser.uid);
-      
-      set({
-        user: userData,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error: any) {
-      console.error('SignIn error in store:', error);
-      set({
-        error: error.message || 'Sign in failed',
-        isLoading: false,
-      });
+      if (userData) {
+        set({ user: userData, isLoading: false });
+      } else {
+        throw new Error('User data not found');
+      }
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
 
   signUp: async (email: string, password: string, displayName: string) => {
+    if (isDemoMode) {
+      // Demo mode - create mock user
+      set({ isLoading: true, error: null });
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate loading
+      const mockUser: User = {
+        id: 'demo-user-456',
+        email: email,
+        displayName: displayName,
+        craftSpecialization: [],
+        skillLevel: 'novice',
+        bio: '',
+        location: '',
+        joinedAt: new Date(),
+        toolInventory: [],
+      };
+      set({ user: mockUser, isLoading: false });
+      return;
+    }
+
     try {
       set({ isLoading: true, error: null });
-      
-      // Use real Firebase authentication
       const authUser = await AuthService.signUp(email, password, displayName);
       const userData = await AuthService.getUserData(authUser.uid);
-      
-      set({
-        user: userData,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error: any) {
-      console.error('SignUp error in store:', error);
-      set({
-        error: error.message || 'Sign up failed',
-        isLoading: false,
-      });
+      if (userData) {
+        set({ user: userData, isLoading: false });
+      } else {
+        throw new Error('User data not found after signup');
+      }
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
 
+  signOut: async () => {
+    if (isDemoMode) {
+      set({ user: null });
+      return;
+    }
 
-
-  logout: async () => {
     try {
-      set({ isLoading: true });
-      
-      // Use real Firebase sign out
       await AuthService.signOut();
-      
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error: any) {
-      set({
-        error: error.message || 'Logout failed',
-        isLoading: false,
-      });
+      set({ user: null, error: null });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
     }
   },
 
-  initializeAuth: () => {
-    console.log('🔧 Initializing auth state listener...');
-    // Set up Firebase auth state listener
-    AuthService.onAuthStateChanged((user) => {
-      console.log('🔄 Auth state changed:', { 
-        user: user ? { id: user.id, email: user.email, displayName: user.displayName } : null 
+  clearError: () => set({ error: null }),
+
+  initializeAuth: async () => {
+    if (isDemoMode) {
+      console.log('🎭 Auth initialized in demo mode');
+      return;
+    }
+
+    try {
+      // Set up Firebase auth state listener
+      AuthService.onAuthStateChanged((user) => {
+        set({ user });
       });
-      set({
-        user,
-        isAuthenticated: !!user,
-        isLoading: false,
-      });
-    });
+    } catch (error) {
+      console.error('Failed to initialize auth:', error);
+      set({ user: null });
+    }
   },
 })); 

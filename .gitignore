@@ -90,6 +90,7 @@ tmp/
 temp/
 *.tmp
 *.temp
+tempfile.txt
 
 # Build artifacts
 build/
