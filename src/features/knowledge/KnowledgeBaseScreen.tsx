@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   TextInput,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -206,9 +207,25 @@ export default function KnowledgeBaseScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>📚 Knowledge Base</Text>
-        <TouchableOpacity style={styles.searchButton}>
-          <Ionicons name="search" size={20} color="#8B4513" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.aiButton}
+            onPress={() => {
+              // For now, show notification about AI assistant
+              if (typeof window !== 'undefined' && window.alert) {
+                window.alert('🤖 AI Assistant is ready! Ask me anything about crafts, techniques, or tools.');
+              } else {
+                Alert.alert('AI Assistant', '🤖 AI Assistant is ready! Ask me anything about crafts, techniques, or tools.');
+              }
+            }}
+          >
+            <Ionicons name="sparkles" size={16} color="#4CAF50" />
+            <Text style={styles.aiButtonText}>AI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.searchButton}>
+            <Ionicons name="search" size={20} color="#8B4513" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search */}
@@ -537,5 +554,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  aiButtonText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 4,
   },
 }); 
