@@ -42,7 +42,7 @@ PHASE 1: FOUNDATION & SETUP ✅ COMPLETED
 PHASE 2: CORE FEATURES IMPLEMENTATION (CURRENT PHASE)
 =================================================================
 
-🔄 User Authentication & Profile Management
+🔄 User Authentication & Profile Management (CORE COMPLETED - Settings Deferred)
   ✅ User registration with Firebase Auth
   ✅ User login/logout functionality
   ✅ Form validation and error handling
@@ -57,7 +57,7 @@ PHASE 2: CORE FEATURES IMPLEMENTATION (CURRENT PHASE)
       - Authentication state persistence across navigation
       - Automatic user document creation for existing users
       - Beautiful craft-themed UI with proper styling
-  ⏳ User preferences and settings
+  🔄 User preferences and settings (DEFERRED - See reminder section below)
 
 ⏳ Camera & Media Integration
   ⏳ Camera component implementation
@@ -205,6 +205,16 @@ CURRENT PRIORITY ITEMS (Next Sprint - June 24, 2025)
 - Mobile device testing on iPhone
 - Authentication flow validation
 - Firebase security rules testing
+
+⚠️ DEFERRED BUT TRACKED ITEMS:
+=================================
+🔄 User Preferences and Settings (DEFERRED - TO COMPLETE BEFORE MVP RELEASE)
+   - App preferences (notifications, privacy settings)
+   - Account settings (change password, delete account)  
+   - Display preferences (dark mode, font size)
+   - Craft-specific settings (measurement units, default privacy levels)
+   - Settings screen UI implementation
+   ⭐ REMINDER: Complete this before final MVP to finish User Auth section
 
 =================================================================
 NOTES & DECISIONS
