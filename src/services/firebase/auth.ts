@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   updateProfile,
+  onAuthStateChanged,
   User as FirebaseUser 
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -47,7 +48,9 @@ export class AuthService {
         joinedAt: new Date(),
       };
 
+      console.log('💾 Creating Firestore user document:', userData);
       await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+      console.log('✅ User document created successfully');
 
       return this.toAuthUser(firebaseUser);
     } catch (error) {
@@ -80,13 +83,20 @@ export class AuthService {
   // Get user data from Firestore
   static async getUserData(uid: string): Promise<User | null> {
     try {
+      console.log('🔍 Getting user data for UID:', uid);
       const userDoc = await getDoc(doc(db, 'users', uid));
+      console.log('📄 Firestore document exists:', userDoc.exists());
+      
       if (userDoc.exists()) {
-        return userDoc.data() as User;
+        const userData = userDoc.data() as User;
+        console.log('📊 Raw Firestore data:', userData);
+        return userData;
+      } else {
+        console.log('❌ No user document found in Firestore for UID:', uid);
+        return null;
       }
-      return null;
     } catch (error) {
-      console.error('Get user data error:', error);
+      console.error('❌ Get user data error:', error);
       throw error;
     }
   }
@@ -100,4 +110,60 @@ export class AuthService {
       throw error;
     }
   }
-} 
+
+  // Update user profile (convenience method)
+  static async updateUserProfile(user: User): Promise<void> {
+    try {
+      await this.updateUserData(user.id, user);
+    } catch (error) {
+      console.error('Update user profile error:', error);
+      throw error;
+    }
+  }
+
+  // Set up auth state listener
+  static onAuthStateChanged(callback: (user: User | null) => void) {
+    console.log('🔧 Setting up Firebase auth state listener...');
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔥 Firebase auth state changed:', { 
+        firebaseUser: firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : null 
+      });
+      
+      if (firebaseUser) {
+        try {
+          console.log('📊 Fetching user data from Firestore...');
+          let userData = await this.getUserData(firebaseUser.uid);
+          
+          // If user data doesn't exist, create it
+          if (!userData) {
+            console.log('🔧 User document missing, creating default profile...');
+            userData = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email!,
+              displayName: firebaseUser.displayName || 'SnapCraft User',
+              craftSpecialization: ['general'],
+              skillLevel: 'novice',
+              toolInventory: [],
+              joinedAt: new Date(),
+            };
+            
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+            console.log('✅ Default user profile created');
+          }
+          
+          console.log('✅ User data retrieved:', userData ? { id: userData.id, email: userData.email } : null);
+          callback(userData);
+        } catch (error) {
+          console.error('❌ Error getting user data:', error);
+          callback(null);
+        }
+      } else {
+        console.log('🚫 No Firebase user, calling callback with null');
+        callback(null);
+      }
+    });
+  }
+}
+
+// Export instance for use in components
+export const authService = new AuthService(); 

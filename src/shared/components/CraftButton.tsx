@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   
-  largSize: {
+  largeSize: {
     paddingHorizontal: 24,
     paddingVertical: 16,
   },
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   
-  largText: {
+  largeText: {
     fontSize: 18,
   },
 }); 

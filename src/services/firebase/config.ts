@@ -47,7 +47,7 @@ try {
   if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
   } else {
-    app = getApps()[0];
+    app = getApps()[0]!; // Non-null assertion since we checked length > 0
   }
   
   // Initialize Firebase services

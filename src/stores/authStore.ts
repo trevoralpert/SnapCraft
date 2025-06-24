@@ -18,6 +18,7 @@ interface AuthActions {
   logout: () => Promise<void>;
   resetError: () => void;
   clearError: () => void;
+  initializeAuth: () => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -123,5 +124,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isLoading: false,
       });
     }
+  },
+
+  initializeAuth: () => {
+    console.log('🔧 Initializing auth state listener...');
+    // Set up Firebase auth state listener
+    AuthService.onAuthStateChanged((user) => {
+      console.log('🔄 Auth state changed:', { 
+        user: user ? { id: user.id, email: user.email, displayName: user.displayName } : null 
+      });
+      set({
+        user,
+        isAuthenticated: !!user,
+        isLoading: false,
+      });
+    });
   },
 })); 

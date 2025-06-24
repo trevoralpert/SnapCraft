@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { useAuthStore } from '../src/stores/authStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -27,7 +28,10 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
+  // Initialize authentication state
+  const { initializeAuth } = useAuthStore();
+
+  // Effect to handle font loading and auth initialization
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -35,8 +39,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      // Initialize Firebase auth state listener
+      initializeAuth();
     }
-  }, [loaded]);
+  }, [loaded, initializeAuth]);
 
   if (!loaded) {
     return null;
