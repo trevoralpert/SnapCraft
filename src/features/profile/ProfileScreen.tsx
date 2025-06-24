@@ -306,6 +306,51 @@ export function ProfileScreen() {
           </View>
         )}
 
+        {/* Achievements Preview */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🏆 Achievements</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                // For now, just show an alert - later we'll navigate to achievements screen
+                if (typeof window !== 'undefined' && window.alert) {
+                  window.alert('🎉 Achievement system is ready! You have 3 unlocked achievements.');
+                } else {
+                  Alert.alert('🎉 Achievements', 'Achievement system is ready! You have 3 unlocked achievements.');
+                }
+              }} 
+              style={styles.viewAllButton}
+            >
+              <Text style={styles.viewAllButtonText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.achievementPreview}>
+            <View style={styles.achievementStat}>
+              <Text style={styles.achievementNumber}>3</Text>
+              <Text style={styles.achievementLabel}>Unlocked</Text>
+            </View>
+            <View style={styles.achievementStat}>
+              <Text style={styles.achievementNumber}>75</Text>
+              <Text style={styles.achievementLabel}>Points</Text>
+            </View>
+            <View style={styles.achievementStat}>
+              <Text style={styles.achievementNumber}>38%</Text>
+              <Text style={styles.achievementLabel}>Complete</Text>
+            </View>
+          </View>
+          <View style={styles.recentAchievements}>
+            <Text style={styles.recentTitle}>Recent Achievements:</Text>
+            <View style={styles.achievementItem}>
+              <Text style={styles.achievementEmoji}>🧰</Text>
+              <Text style={styles.achievementText}>Tool Collector - Add 5 tools to your inventory</Text>
+            </View>
+            <View style={styles.achievementItem}>
+              <Text style={styles.achievementEmoji}>🥽</Text>
+              <Text style={styles.achievementText}>Safety First - Read all safety articles</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Tool Inventory Preview */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tool Inventory</Text>
@@ -517,5 +562,60 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 20,
+  },
+  viewAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#8B4513',
+    borderRadius: 6,
+  },
+  viewAllButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  achievementPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F9F5F1',
+    borderRadius: 8,
+  },
+  achievementStat: {
+    alignItems: 'center',
+  },
+  achievementNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  achievementLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  recentAchievements: {
+    marginTop: 8,
+  },
+  recentTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B4513',
+    marginBottom: 8,
+  },
+  achievementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  achievementEmoji: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  achievementText: {
+    fontSize: 12,
+    color: '#666',
+    flex: 1,
   },
 }); 

@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '../src/stores/authStore';
+import { NotificationSystem, useNotifications } from '../src/shared/components/NotificationSystem';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -53,6 +54,29 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const {
+    notifications,
+    dismissNotification,
+    showSuccess,
+    showError,
+    showAchievement,
+  } = useNotifications();
+
+  // Demo: Show welcome notification after app loads
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      showSuccess(
+        'Welcome to SnapCraft!',
+        'Your craft journey begins here. Start exploring and sharing your creations!',
+        {
+          label: 'Get Started',
+          onPress: () => console.log('User tapped Get Started'),
+        }
+      );
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -60,6 +84,10 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
+      <NotificationSystem
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
     </ThemeProvider>
   );
 }

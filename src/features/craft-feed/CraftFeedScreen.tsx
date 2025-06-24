@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
+import { useNotifications } from '../../shared/components/NotificationSystem';
 
 // Mock craft posts data for MVP demo
 const MOCK_CRAFT_POSTS = [
@@ -107,6 +108,7 @@ interface CraftFeedScreenProps {
 
 export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) {
   const { user } = useAuthStore();
+  const { showSuccess, showError, showAchievement, showInfo } = useNotifications();
   const [posts, setPosts] = useState(MOCK_CRAFT_POSTS);
   const [refreshing, setRefreshing] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
@@ -149,6 +151,25 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
     );
     
     console.log(`${isLiked ? '💔' : '❤️'} Post ${postId} ${isLiked ? 'unliked' : 'liked'}`);
+    
+    // Show notification for like action
+    if (!isLiked) {
+      showSuccess('Liked!', 'Post added to your liked crafts');
+      
+      // Simulate achievement unlock for first like
+      if (likedPosts.size === 0) {
+        setTimeout(() => {
+          showAchievement(
+            'First Like!',
+            'You liked your first craft post. Keep engaging with the community!',
+            {
+              label: 'View Achievement',
+              onPress: () => console.log('Navigate to achievements'),
+            }
+          );
+        }, 1000);
+      }
+    }
   };
 
   const handleComment = (postId: string) => {
@@ -173,12 +194,7 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
 
   const handleSave = (postId: string) => {
     console.log('🔖 Saving post:', postId);
-    const message = 'Post saved to your craft collection! Access saved posts from your profile.';
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert(message);
-    } else {
-      Alert.alert('Saved', message);
-    }
+    showSuccess('Saved!', 'Post saved to your craft collection. Access saved posts from your profile.');
   };
 
   // Format time spent
