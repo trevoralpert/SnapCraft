@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../shared/types';
+import { AuthService } from '../services/firebase/auth';
 
 interface AuthState {
   user: User | null;
@@ -12,9 +13,11 @@ interface AuthActions {
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  login: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   resetError: () => void;
+  clearError: () => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -47,48 +50,66 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ error: null });
   },
 
-  login: async (email: string, password: string) => {
+  clearError: () => {
+    set({ error: null });
+  },
+
+  signIn: async (email: string, password: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      // TODO: Implement Firebase authentication
-      // This is a placeholder for now
-      console.log('Login attempt:', { email });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For now, create a mock user
-      const mockUser: User = {
-        id: '1',
-        email,
-        displayName: email.split('@')[0],
-        craftSpecialization: ['woodworking'],
-        skillLevel: 'novice',
-        toolInventory: [],
-        joinedAt: new Date(),
-      };
+      // Use real Firebase authentication
+      const authUser = await AuthService.signIn(email, password);
+      const userData = await AuthService.getUserData(authUser.uid);
       
       set({
-        user: mockUser,
+        user: userData,
         isAuthenticated: true,
         isLoading: false,
         error: null,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('SignIn error in store:', error);
       set({
-        error: error instanceof Error ? error.message : 'Login failed',
+        error: error.message || 'Sign in failed',
         isLoading: false,
       });
+      throw error;
     }
   },
+
+  signUp: async (email: string, password: string, displayName: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // Use real Firebase authentication
+      const authUser = await AuthService.signUp(email, password, displayName);
+      const userData = await AuthService.getUserData(authUser.uid);
+      
+      set({
+        user: userData,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error: any) {
+      console.error('SignUp error in store:', error);
+      set({
+        error: error.message || 'Sign up failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+
 
   logout: async () => {
     try {
       set({ isLoading: true });
       
-      // TODO: Implement Firebase sign out
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Use real Firebase sign out
+      await AuthService.signOut();
       
       set({
         user: null,
@@ -96,9 +117,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isLoading: false,
         error: null,
       });
-    } catch (error) {
+    } catch (error: any) {
       set({
-        error: error instanceof Error ? error.message : 'Logout failed',
+        error: error.message || 'Logout failed',
         isLoading: false,
       });
     }
