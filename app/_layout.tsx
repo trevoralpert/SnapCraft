@@ -3,12 +3,14 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '../src/stores/authStore';
 import { NotificationSystem, useNotifications } from '../src/shared/components/NotificationSystem';
+import { LoginScreen } from '../src/features/auth/LoginScreen';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -30,7 +32,8 @@ export default function RootLayout() {
   });
 
   // Initialize authentication state
-  const { initializeAuth } = useAuthStore();
+  const { initializeAuth, user, isLoading } = useAuthStore();
+  const [isAuthInitialized, setIsAuthInitialized] = useState(false);
 
   // Effect to handle font loading and auth initialization
   useEffect(() => {
@@ -41,14 +44,36 @@ export default function RootLayout() {
     if (loaded) {
       SplashScreen.hideAsync();
       // Initialize Firebase auth state listener
-      initializeAuth();
+      initializeAuth().then(() => {
+        setIsAuthInitialized(true);
+      });
     }
   }, [loaded, initializeAuth]);
 
-  if (!loaded) {
-    return null;
+  // Show loading screen while fonts load or auth initializes
+  if (!loaded || !isAuthInitialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5DC' }}>
+        <ActivityIndicator size="large" color="#8B4513" />
+      </View>
+    );
   }
 
+  // Show auth loading state
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5DC' }}>
+        <ActivityIndicator size="large" color="#8B4513" />
+      </View>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  // Show main app if authenticated
   return <RootLayoutNav />;
 }
 
@@ -66,11 +91,11 @@ function RootLayoutNav() {
   useEffect(() => {
     const timer = setTimeout(() => {
       showSuccess(
-        'Welcome to SnapCraft!',
-        'Your craft journey begins here. Start exploring and sharing your creations!',
+        'Welcome back to SnapCraft!',
+        'Ready to continue your craft journey? Check out the latest community projects!',
         {
-          label: 'Get Started',
-          onPress: () => console.log('User tapped Get Started'),
+          label: 'Explore',
+          onPress: () => console.log('User tapped Explore'),
         }
       );
     }, 2000);

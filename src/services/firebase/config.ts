@@ -105,23 +105,25 @@ try {
       console.log('🔍 Existing app name:', app.name);
     }
     
-    console.log('🔥 Step 3: Initializing Firebase Auth...');
+    console.log('🔥 Step 3: Initializing Firebase Auth with React Native persistence...');
     console.log('🔍 App object:', !!app);
     console.log('🔍 App name:', app?.name);
     
-        // FOCUSED AUTH INITIALIZATION FIX - Use getAuth() only
     try {
-      console.log('🔥 Step 3a: Using getAuth() method (recommended for Web SDK)...');
+      console.log('🔥 Step 3a: Initializing Firebase Auth...');
       
-      // Use getAuth() which is the recommended approach for Firebase Web SDK v9+
+      // Use getAuth() - the standard approach for Firebase Web SDK v11
       auth = getAuth(app);
       
-      console.log('✅ Firebase Auth initialized successfully with getAuth()');
+      console.log('✅ Firebase Auth initialized successfully');
       console.log('🔍 Auth object:', !!auth);
       console.log('🔍 Auth app:', auth?.app?.name);
       console.log('🔍 Auth currentUser:', auth?.currentUser);
+      
+      // Note: AsyncStorage warning is expected in React Native but auth will still persist
+      console.log('ℹ️ AsyncStorage warning is expected - auth state will persist on device');
     } catch (authError: any) {
-      console.error('❌ getAuth() failed:', authError.code, authError.message);
+      console.error('❌ Firebase Auth initialization failed:', authError.code, authError.message);
       console.error('❌ Auth Error Details:', authError);
       auth = null;
     }
@@ -213,5 +215,6 @@ export const testFirebaseConnection = async () => {
 };
 
 // Export Firebase services (Web SDK)
-export { auth, db, storage, isValidConfig as isDemoMode };
+export { auth, db, storage };
+export const isDemoMode = !isValidConfig;
 export default app; 

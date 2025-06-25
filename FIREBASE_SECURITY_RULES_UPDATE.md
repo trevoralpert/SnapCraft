@@ -75,10 +75,10 @@ service cloud.firestore {
 }
 ```
 
-### Step 3: Update Storage Rules
+### Step 3: Update Storage Rules (CRITICAL FIX)
 1. Go to **Storage** in the left sidebar
 2. Click **Rules** tab
-3. Replace with this:
+3. Replace with this **UPDATED** version:
 
 ```javascript
 rules_version = '2';
@@ -92,7 +92,22 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
     
-    // Craft post media (images and videos)
+    // Stories media (24-hour ephemeral content) - FIXED PATH
+    match /stories/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024  // Max 10MB for stories
+        && (request.resource.contentType.matches('image/.*') || 
+            request.resource.contentType.matches('video/.*'));
+    }
+    
+    // Stories with direct file names (alternative path pattern)
+    match /stories/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Craft post media (images and videos) - FIXED PATH  
     match /craftPosts/{userId}/{postId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId
@@ -101,21 +116,18 @@ service firebase.storage {
             request.resource.contentType.matches('video/.*'));
     }
     
+    // Craft posts with direct file access (alternative path)
+    match /craftPosts/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Tool images in user inventory
     match /tools/{userId}/{toolId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024   // Max 5MB
         && request.resource.contentType.matches('image/.*');
-    }
-    
-    // Stories media (24-hour ephemeral content)
-    match /stories/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId
-        && request.resource.size < 10 * 1024 * 1024  // Max 10MB for stories
-        && (request.resource.contentType.matches('image/.*') || 
-            request.resource.contentType.matches('video/.*'));
     }
     
     // Temporary upload folder (for processing)
@@ -127,7 +139,12 @@ service firebase.storage {
 }
 ```
 
-### Step 4: Publish Rules
+### Step 4: Create Required Firestore Index
+1. **IMPORTANT**: You need to create a Firestore index for stories queries
+2. Click this link (from your error): https://console.firebase.google.com/v1/r/project/snapcraft-app-14ae7/firestore/indexes?create_composite=Clhwcm9qZWN0cy9zbmFwY3JhZnQtYXBwLTE0YWU3L2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9jcmFmdFN0b3JpZXMvaW5kZXhlcy9fEAEaDAoIaXNBY3RpdmUQARoNCglleHBpcmVzQXQQARoNCgljcmVhdGVkQXQQAhoMCghfX25hbWVfXxAC
+3. Click **Create Index** - this will take 2-3 minutes to build
+
+### Step 5: Publish Rules
 1. Click **Publish** for both Firestore and Storage rules
 2. Wait for confirmation
 

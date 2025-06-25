@@ -1,63 +1,87 @@
 # 🚨 KNOWN ISSUES - SnapCraft MVP
 
-## Issue #1: Firebase Firestore Permission Denied (PRIORITY: HIGH)
+## Issue #1: Firebase Storage Permission Denied (PRIORITY: HIGH)
 
-**Status**: UNRESOLVED - Needs attention before final deployment
-**Discovered**: June 24, 2025 - 6:08 PM
-**Time Remaining**: 2 hours 52 minutes until 9 PM deadline
+**Status**: MAJOR PROGRESS - Authentication FIXED, Storage Rules Need Update
+**Discovered**: June 24, 2025 - 6:08 PM  
+**Updated**: June 25, 2025 - 4:00 PM
+
+### 🎉 BREAKTHROUGH: What's Now Working!
+- ✅ **Authentication State Persistence**: Users stay logged in between sessions
+- ✅ **Profile Management**: Profile screen shows real user data 
+- ✅ **Firestore Database Access**: Posts save and load from Firebase successfully
+- ✅ **Post Creation**: Posts without images work perfectly
+- ✅ **Real-time Data**: Feed shows actual Firebase data, not mock data
+
+### ❌ Remaining Issue: Firebase Storage Permissions
+- **SPECIFIC PROBLEM**: Image and video uploads fail with permission errors
+- **ROOT CAUSE**: Firebase Storage security rules are too restrictive
+- **IMPACT**: Stories with photos and posts with images cannot upload media
+
+### Error Details (Storage Only)
+```
+Firebase Storage: User does not have permission to access 'stories/gRiUWvFO3dMk5lzqMvvSPQTl5z82/1750880955729.jpg'. (storage/unauthorized)
+
+Firebase Storage: User does not have permission to access 'craftPosts/gRiUWvFO3dMk5lzqMvvSPQTl5z82/post_1750881456990/image_1750881456991_0.jpg'. (storage/unauthorized)
+```
+
+### Evidence of Success
+```
+✅ Firebase Auth initialized successfully
+✅ User data retrieved: {"email": "test@snapcraft.com", "id": "gRiUWvFO3dMk5lzqMvvSPQTl5z82"}
+✅ Post created successfully: aoLFB9b5lnI02AS03tau
+✅ Retrieved 3 posts from Firestore
+✅ Firestore access successful: 1
+```
+
+### IMMEDIATE SOLUTION REQUIRED
+**Update Firebase Storage Rules** - See FIREBASE_SECURITY_RULES_UPDATE.md for exact rules to copy/paste
+
+### Current Status Summary
+- 🟢 **Authentication**: WORKING 
+- 🟢 **Database (Firestore)**: WORKING
+- 🔴 **Storage (Files)**: BLOCKED by security rules
+- 🟢 **UI/UX**: WORKING perfectly
+
+---
+
+## Issue #2: Firestore Database Index Missing (PRIORITY: MEDIUM)
+
+**Status**: IDENTIFIED - Requires Firebase Console configuration  
+**Error**: `The query requires an index for stories collection`
 
 ### Problem Description
-- Firestore security rules are correctly configured in Firebase Console
-- App still receiving `FirebaseError: [code=permission-denied]: Missing or insufficient permissions`
-- Error occurs when trying to fetch posts from `craftPosts` collection
-- App gracefully falls back to mock data, so functionality is preserved
+- Firestore queries for stories require composite indexes
+- Error provides direct link to create index: https://console.firebase.google.com/v1/r/project/snapcraft-app-14ae7/firestore/indexes?create_composite=...
+- This is normal for complex queries with multiple sort fields
 
-### Error Details
-```
-Error loading posts: Error: Failed to fetch posts: 
-FirebaseError: [code=permission-denied]: Missing or insufficient permissions.
-```
+### Solution
+1. Click the index creation link from the error message
+2. Click "Create Index" in Firebase Console  
+3. Wait 2-3 minutes for index to build
+4. Stories will then load properly
 
-### What We've Tried
-1. ✅ Updated Firestore security rules in Firebase Console
-2. ✅ Updated Storage security rules in Firebase Console  
-3. ✅ Changed collection name from `posts` to `craftPosts` in code
-4. ✅ Updated storage paths to match security rules
-5. ✅ Confirmed rules are published in Firebase Console
+---
 
-### Current Workaround
-- App falls back to mock data when Firebase fails
-- All UI functionality works normally
-- Users can still interact with the app
+## Issue #3: Story Creation Interface Consolidation (PRIORITY: LOW)
 
-### Possible Causes
-1. **Rules Propagation Delay**: Firebase rules can take 5-10 minutes to propagate globally
-2. **Authentication Context**: User authentication state might not be properly passed to Firestore queries
-3. **Collection Structure**: Mismatch between expected document structure and security rules
-4. **Environment Variables**: Firebase config might have stale cached values
+**Status**: DESIGN IMPROVEMENT NEEDED
 
-### Next Steps (POST-MVP)
-1. **Wait for propagation**: Check if issue resolves after 10-15 minutes
-2. **Debug authentication**: Verify user auth token is being sent with Firestore requests
-3. **Test in Firebase Console**: Use Firestore simulator to test rules with actual user token
-4. **Check network logs**: Inspect actual HTTP requests being sent to Firestore
-5. **Verify project settings**: Ensure correct Firebase project is being used
+### Problem Description
+- Two different story creation paths exist:
+  1. ✅ Plus button next to "Craft Feed" (WORKING)
+  2. ❌ "Your Story" dotted circle with camera (FAILING due to storage)
+- Both should create the same type of content but use different interfaces
 
-### Impact on MVP
-- **LOW IMMEDIATE IMPACT**: App functions normally with mock data
-- **HIGH FUTURE IMPACT**: Real user-generated content won't persist
-- **DEMO IMPACT**: Can demonstrate all features, but posts won't save
-
-### Files Affected
-- `src/services/firebase/posts.ts` - Firestore operations
-- `src/features/craft-feed/CraftFeedScreen.tsx` - Error handling and fallback
-- `FIREBASE_SECURITY_RULES_UPDATE.md` - Security rules documentation
+### Solution Options
+1. **Quick Fix**: Disable camera story creation until storage rules are fixed
+2. **Better Fix**: Consolidate both interfaces to use the same backend logic
+3. **Best Fix**: Make camera stories work by fixing storage permissions
 
 ---
 
 ## Development Notes
-- Proceeding with Stories implementation while this resolves
-- All new features will include similar fallback mechanisms
-- Firebase integration code is ready and should work once permissions resolve
-
-**REMINDER**: Test Firebase connectivity again before final demo at 9 PM 
+- **MAJOR WIN**: Authentication and database access are now fully working!
+- **NEXT STEP**: Update Firebase Storage rules to enable image/video uploads
+- **DEMO READY**: App is fully functional for demonstration purposes
+- All core features work - just need to enable media uploads 

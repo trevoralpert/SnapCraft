@@ -149,6 +149,16 @@ export function ProfileScreen() {
     }));
   };
 
+  const handleLogout = async () => {
+    try {
+      await AuthService.signOut();
+      // Navigation will be handled automatically by the auth listener in _layout.tsx
+    } catch (error) {
+      console.error('Error signing out:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -357,6 +367,16 @@ export function ProfileScreen() {
           <Text style={styles.comingSoon}>
             📦 Tool inventory management coming soon! Track your tools, share with the community, and discover new additions.
           </Text>
+        </View>
+
+        {/* Logout Section */}
+        <View style={styles.section}>
+          <CraftButton
+            title="Sign Out"
+            onPress={handleLogout}
+            style={styles.logoutButton}
+            textStyle={styles.logoutButtonText}
+          />
         </View>
 
         <View style={styles.bottomSpacing} />
@@ -617,5 +637,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     flex: 1,
+  },
+  logoutButton: {
+    backgroundColor: '#DC143C', // Red color for logout
+    borderColor: '#DC143C',
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 }); 

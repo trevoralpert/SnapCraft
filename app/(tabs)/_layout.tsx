@@ -47,13 +47,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: 'Auth Demo',
-          tabBarIcon: ({ color }) => <TabBarIcon name="lock" color={color} />,
-        }}
-      />
+
       <Tabs.Screen
         name="camera"
         options={{

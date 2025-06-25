@@ -123,12 +123,12 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
         author: {
           id: currentUserId,
           displayName: currentUserName,
-          avatar: currentUserAvatar,
+          avatar: currentUserAvatar || '🔨', // Default avatar if none provided
         },
         content: {
-          imageUrl,
-          text: storyText.trim() || undefined,
-          backgroundColor: selectedColor || undefined,
+          ...(imageUrl && { imageUrl }),
+          ...(storyText.trim() && { text: storyText.trim() }),
+          ...(selectedColor && { backgroundColor: selectedColor }),
         },
       };
 
