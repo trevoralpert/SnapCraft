@@ -11,7 +11,11 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../stores/authStore';
+import { uploadMultipleImages, generatePostImagePath } from '../../services/firebase/storage';
+import { createPost } from '../../services/firebase/posts';
+import { CraftPost } from '../../shared/types';
 
 // Craft types for selection
 const CRAFT_TYPES = [
@@ -53,6 +57,7 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
   const [isEphemeral, setIsEphemeral] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // Add/remove material fields
   const addMaterial = () => {
@@ -88,26 +93,52 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
     setTechniques(newTechniques);
   };
 
-  // Mock image picker
-  const handleAddImage = () => {
-    const mockImages = [
-      'https://via.placeholder.com/400x300/8B4513/FFFFFF?text=Craft+Project+1',
-      'https://via.placeholder.com/400x300/2F4F4F/FFFFFF?text=Craft+Project+2',
-      'https://via.placeholder.com/400x300/8B7355/FFFFFF?text=Craft+Project+3',
-    ];
-    
-    if (selectedImages.length < 3) {
-      const newImage = mockImages[selectedImages.length];
-      if (newImage) {
-        setSelectedImages([...selectedImages, newImage]);
-        console.log('📸 Mock image added:', newImage);
-      }
-    } else {
+  // Real image picker
+  const handleAddImage = async () => {
+    if (selectedImages.length >= 3) {
       const message = 'Maximum 3 images allowed per post.';
       if (typeof window !== 'undefined' && window.alert) {
         window.alert(message);
       } else {
         Alert.alert('Image Limit', message);
+      }
+      return;
+    }
+
+    try {
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        const message = 'Permission to access media library is required to add photos to your craft post.';
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(message);
+        } else {
+          Alert.alert('Permission Required', message);
+        }
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const newImageUri = result.assets[0].uri;
+        setSelectedImages([...selectedImages, newImageUri]);
+        console.log('📸 Real image added:', newImageUri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      const message = 'Failed to select image. Please try again.';
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
       }
     }
   };
@@ -192,7 +223,7 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
     return Math.max(0, totalMinutes);
   };
 
-  // Submit post
+  // Submit post with real Firebase integration
   const handleSubmit = async () => {
     if (!user) {
       const message = 'Please log in to create a post.';
@@ -207,29 +238,48 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
     if (!validateForm()) return;
 
     setIsSubmitting(true);
+    setUploadProgress(0);
 
     try {
-      // Create new post object
-      const newPost = {
-        id: Date.now().toString(), // Mock ID
+      let imageUrls: string[] = [];
+
+      // Upload images to Firebase Storage if any selected
+      if (selectedImages.length > 0) {
+        console.log('📤 Uploading images to Firebase Storage...');
+        const basePath = generatePostImagePath(user.id);
+        
+        const uploadResults = await uploadMultipleImages(
+          selectedImages,
+          basePath,
+          (progress) => {
+            setUploadProgress(progress);
+            console.log(`📊 Upload progress: ${progress.toFixed(1)}%`);
+          }
+        );
+
+        imageUrls = uploadResults.map(result => result.url);
+        console.log('✅ Images uploaded successfully:', imageUrls.length);
+      }
+
+      // Create post data
+      const postData: Omit<CraftPost, 'id' | 'createdAt' | 'updatedAt'> = {
         userId: user.id,
         author: {
           id: user.id,
           displayName: user.displayName || 'Anonymous Craftsman',
-          avatar: '🔨', // Default avatar
+          avatar: '🔨', // Default avatar - could be enhanced with user avatar
         },
         content: {
           description: description.trim(),
-          images: selectedImages,
+          images: imageUrls,
           videos: [],
           materials: materials.filter(m => m.trim()),
           timeSpent: parseTimeToMinutes(timeSpent),
-          difficulty: selectedDifficulty,
+          difficulty: selectedDifficulty as 'beginner' | 'intermediate' | 'advanced' | 'expert',
         },
-        craftType: selectedCraftType,
+        craftType: selectedCraftType as CraftPost['craftType'],
         techniques: techniques.filter(t => t.trim()),
         tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-        createdAt: new Date(),
         engagement: {
           likes: 0,
           comments: 0,
@@ -239,14 +289,26 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
         isEphemeral,
       };
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Save post to Firestore
+      console.log('💾 Saving post to Firestore...');
+      const postId = await createPost(postData);
 
-      console.log('📝 New craft post created:', newPost);
+      console.log('✅ Craft post created successfully:', postId);
+      
+      // Reset form
+      setDescription('');
+      setSelectedCraftType('');
+      setSelectedDifficulty('');
+      setMaterials(['']);
+      setTechniques(['']);
+      setTimeSpent('');
+      setTags('');
+      setSelectedImages([]);
+      setIsEphemeral(false);
       
       // Call success callback
       if (onPostCreated) {
-        onPostCreated(newPost);
+        onPostCreated({ id: postId, ...postData });
       }
 
       // Show success message
@@ -259,7 +321,8 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
 
     } catch (error) {
       console.error('❌ Error creating post:', error);
-      const message = 'Failed to create post. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const message = `Failed to create post: ${errorMessage}`;
       if (typeof window !== 'undefined' && window.alert) {
         window.alert(message);
       } else {
@@ -267,6 +330,7 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
       }
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -300,7 +364,10 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
           disabled={isSubmitting}
         >
           <Text style={styles.submitButtonText}>
-            {isSubmitting ? 'Posting...' : 'Post'}
+            {isSubmitting 
+              ? (uploadProgress > 0 ? `Uploading ${Math.round(uploadProgress)}%` : 'Posting...')
+              : 'Post'
+            }
           </Text>
         </TouchableOpacity>
       </View>

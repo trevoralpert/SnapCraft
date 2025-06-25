@@ -9,13 +9,19 @@ import {
   SafeAreaView,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotifications } from '../../shared/components/NotificationSystem';
+import { getPosts, updatePostEngagement } from '../../services/firebase/posts';
+import { CraftPost, CraftStory } from '../../shared/types';
+import { StoriesBar, StoryViewer, CreateStoryScreen } from '../stories';
+import { AuthService } from '../../services/firebase/auth';
+import { auth, db, storage, isDemoMode, testFirebaseConnection } from '../../services/firebase/config';
 
 // Mock craft posts data for MVP demo
-const MOCK_CRAFT_POSTS = [
+const MOCK_CRAFT_POSTS: CraftPost[] = [
   {
     id: '1',
     userId: 'user1',
@@ -36,6 +42,7 @@ const MOCK_CRAFT_POSTS = [
     techniques: ['Mortise and tenon', 'Hand sanding', 'Traditional finish'],
     tags: ['furniture', 'dining', 'oak', 'handmade'],
     createdAt: new Date('2024-06-24T10:00:00'),
+    updatedAt: new Date('2024-06-24T10:00:00'),
     engagement: {
       likes: 24,
       comments: 8,
@@ -64,6 +71,7 @@ const MOCK_CRAFT_POSTS = [
     techniques: ['Forging', 'Heat treatment', 'Handle wrapping'],
     tags: ['knife', 'kitchen', 'steel', 'forged'],
     createdAt: new Date('2024-06-24T08:30:00'),
+    updatedAt: new Date('2024-06-24T08:30:00'),
     engagement: {
       likes: 31,
       comments: 12,
@@ -92,6 +100,7 @@ const MOCK_CRAFT_POSTS = [
     techniques: ['Wheel throwing', 'Glazing', 'Kiln firing'],
     tags: ['pottery', 'ceramic', 'handmade', 'kitchenware'],
     createdAt: new Date('2024-06-24T06:15:00'),
+    updatedAt: new Date('2024-06-24T06:15:00'),
     engagement: {
       likes: 19,
       comments: 6,
@@ -109,17 +118,55 @@ interface CraftFeedScreenProps {
 export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) {
   const { user } = useAuthStore();
   const { showSuccess, showError, showAchievement, showInfo } = useNotifications();
-  const [posts, setPosts] = useState(MOCK_CRAFT_POSTS);
+  const [posts, setPosts] = useState<CraftPost[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  
+  // Stories state
+  const [showStoryViewer, setShowStoryViewer] = useState(false);
+  const [showCreateStory, setShowCreateStory] = useState(false);
+  const [currentStories, setCurrentStories] = useState<CraftStory[]>([]);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+
+  const [demoMode, setDemoMode] = useState(true); // Default to demo mode for reliable MVP demo
+
+  // Load posts from Firebase
+  const loadPosts = async () => {
+    try {
+      console.log('📄 Loading posts from Firebase...');
+      const fetchedPosts = await getPosts(50);
+      setPosts(fetchedPosts);
+      setError(null); // Clear any previous errors
+      console.log(`✅ Loaded ${fetchedPosts.length} posts`);
+    } catch (err) {
+      console.error('❌ Error loading posts:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      // Fallback to mock data if Firebase fails
+      setPosts(MOCK_CRAFT_POSTS);
+      showError('Failed to load posts', 'Using cached content');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load posts on component mount
+  useEffect(() => {
+    loadPosts();
+  }, []);
 
   // Refresh feed
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('🔄 Craft feed refreshed');
-    setRefreshing(false);
+    try {
+      await loadPosts();
+    } catch (error) {
+      console.error('❌ Error refreshing posts:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Handle post interactions
@@ -197,6 +244,32 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
     showSuccess('Saved!', 'Post saved to your craft collection. Access saved posts from your profile.');
   };
 
+  // Story handlers
+  const handleStoryPress = (story: CraftStory, allStories: CraftStory[]) => {
+    setCurrentStories(allStories);
+    setCurrentStoryIndex(allStories.findIndex(s => s.id === story.id));
+    setShowStoryViewer(true);
+  };
+
+  const handleCreateStoryPress = () => {
+    setShowCreateStory(true);
+  };
+
+  const handleStoryCreated = (story: CraftStory) => {
+    console.log('✅ Story created:', story.id);
+    showSuccess('Story Shared!', 'Your story is now live for 24 hours');
+  };
+
+  const handleCloseStoryViewer = () => {
+    setShowStoryViewer(false);
+    setCurrentStories([]);
+    setCurrentStoryIndex(0);
+  };
+
+  const handleCloseCreateStory = () => {
+    setShowCreateStory(false);
+  };
+
   // Format time spent
   const formatTimeSpent = (minutes: number): string => {
     if (minutes < 60) return `${minutes}m`;
@@ -216,6 +289,58 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
       default: return '#757575';
     }
   };
+
+  // Use demo data if demo mode is enabled or if there are Firebase errors
+  const displayPosts = demoMode || error ? MOCK_CRAFT_POSTS : posts;
+
+  // Quick auth for demo
+  const handleQuickAuth = async () => {
+    try {
+      // Try to sign in with demo credentials, or create account if it doesn't exist
+      try {
+        await AuthService.signIn('demo@snapcraft.com', 'password123');
+        showSuccess('Signed in!', 'Authentication successful');
+      } catch (signInError) {
+        // If sign in fails, try to create the account
+        console.log('Sign in failed, creating demo account...');
+                 await AuthService.signUp(
+           'demo@snapcraft.com', 
+           'password123', 
+           'Demo Craftsperson',
+           ['woodworking', 'general'],
+           'apprentice'
+         );
+        showSuccess('Account created!', 'Demo account ready');
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+      showError('Auth failed', 'Could not authenticate');
+    }
+  };
+
+  // Debug Firebase initialization
+  useEffect(() => {
+    const runFirebaseTest = async () => {
+      console.log('🔍 Firebase Debug Info:');
+      console.log('- isDemoMode:', isDemoMode);
+      console.log('- auth:', !!auth);
+      console.log('- db:', !!db);
+      console.log('- storage:', !!storage);
+      console.log('- Environment check:', {
+        hasApiKey: !!process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+        hasProjectId: !!process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+        projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+        apiKeyFirst10: process.env.EXPO_PUBLIC_FIREBASE_API_KEY?.substring(0, 10),
+        messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      });
+      
+      // Run Firebase connection test
+      const connectionResult = await testFirebaseConnection();
+      console.log('🧪 Firebase connection test result:', connectionResult);
+    };
+    
+    runFirebaseTest();
+  }, []);
 
   // Render craft post
   const renderCraftPost = ({ item }: { item: typeof MOCK_CRAFT_POSTS[0] }) => {
@@ -331,6 +456,84 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* DEBUG INFO */}
+      <View style={styles.debugContainer}>
+        <Text style={styles.debugText}>
+          🔍 Debug: User = {user ? user.email : 'Not authenticated'}
+        </Text>
+        <Text style={styles.debugText}>
+          🔥 Firebase: {auth ? 'Initialized' : 'NOT INITIALIZED'} | Demo: {isDemoMode ? 'Yes' : 'No'}
+        </Text>
+        <Text style={styles.debugText}>
+          📊 Posts loaded: {displayPosts.length} {demoMode ? '(Demo Mode)' : '(Firebase)'}
+        </Text>
+        <Text style={styles.debugText}>
+          ⏳ Loading: {loading ? 'Yes' : 'No'}
+        </Text>
+        {error && (
+          <Text style={styles.errorText}>❌ Error: {error}</Text>
+        )}
+        
+        {/* Quick Auth Button - only show if Firebase is initialized */}
+        {!user && auth && (
+          <TouchableOpacity 
+            style={styles.authButton}
+            onPress={handleQuickAuth}
+          >
+            <Text style={styles.authButtonText}>
+              🔐 Quick Login (Demo)
+            </Text>
+          </TouchableOpacity>
+        )}
+        
+        <TouchableOpacity 
+          style={[styles.toggleButton, { backgroundColor: demoMode ? '#8B4513' : '#D2691E' }]} 
+          onPress={() => setDemoMode(!demoMode)}
+        >
+          <Text style={styles.toggleButtonText}>
+            {demoMode ? '🔥 Switch to Firebase' : '🎭 Switch to Demo Mode'}
+          </Text>
+        </TouchableOpacity>
+        
+        {/* Add Firebase Auth Test Button */}
+        <TouchableOpacity 
+          style={[styles.toggleButton, { backgroundColor: '#228B22', marginTop: 8 }]} 
+          onPress={async () => {
+            console.log('🔥 BUTTON PRESSED - Firebase Test Starting...');
+            showInfo('Testing Firebase...', 'Check your terminal for logs');
+            
+            console.log('🧪 Manual Firebase Auth Test');
+            console.log('Current auth state:', {
+              auth: !!auth,
+              currentUser: auth?.currentUser,
+              userEmail: auth?.currentUser?.email,
+              userUid: auth?.currentUser?.uid,
+            });
+            
+            if (auth?.currentUser) {
+              console.log('✅ User is authenticated, testing Firestore access...');
+              try {
+                const testPosts = await getPosts(1);
+                console.log('✅ Firestore access successful:', testPosts.length);
+                showSuccess('Firebase Connected!', 'Authentication and Firestore working');
+                setDemoMode(false); // Switch to Firebase mode
+                loadPosts(); // Reload posts
+              } catch (error) {
+                console.error('❌ Firestore access failed:', error);
+                showError('Firebase Error', 'Check authentication or rules');
+              }
+            } else {
+              console.log('❌ No authenticated user found');
+              showError('Not Authenticated', 'Please sign in first');
+            }
+          }}
+        >
+          <Text style={styles.toggleButtonText}>
+            🧪 Test Firebase Connection
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🔨 Craft Feed</Text>
@@ -342,6 +545,15 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
         </TouchableOpacity>
       </View>
 
+      {/* Stories Bar */}
+      {user && (
+        <StoriesBar
+          currentUserId={user.id}
+          onStoryPress={handleStoryPress}
+          onCreateStoryPress={handleCreateStoryPress}
+        />
+      )}
+
       {/* Welcome Message for New Users */}
       {user && (
         <View style={styles.welcomeContainer}>
@@ -352,21 +564,68 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
       )}
 
       {/* Craft Feed */}
-      <FlatList
-        data={posts}
-        renderItem={renderCraftPost}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.feedContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#8B4513"
-            colors={["#8B4513"]}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading craft projects...</Text>
+        </View>
+      ) : displayPosts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>No posts yet</Text>
+          <Text style={styles.emptyMessage}>
+            Be the first to share your craft project with the community!
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={displayPosts}
+          renderItem={renderCraftPost}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.feedContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#8B4513"
+              colors={["#8B4513"]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* Story Viewer Modal */}
+      <Modal
+        visible={showStoryViewer}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        {showStoryViewer && currentStories.length > 0 && user && (
+          <StoryViewer
+            stories={currentStories}
+            initialStoryIndex={currentStoryIndex}
+            currentUserId={user.id}
+            onClose={handleCloseStoryViewer}
+            onStoryEnd={handleCloseStoryViewer}
           />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+        )}
+      </Modal>
+
+      {/* Create Story Modal */}
+      <Modal
+        visible={showCreateStory}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        {showCreateStory && user && (
+          <CreateStoryScreen
+            currentUserId={user.id}
+            currentUserName={user.displayName}
+            currentUserAvatar={user.avatar}
+            onClose={handleCloseCreateStory}
+            onStoryCreated={handleStoryCreated}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -553,5 +812,79 @@ const styles = StyleSheet.create({
   },
   likedText: {
     color: '#FF4444',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#8B4513',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 50,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  debugContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    margin: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ff4444',
+    marginBottom: 2,
+  },
+  toggleButton: {
+    backgroundColor: '#8B4513',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 5,
+  },
+  toggleButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  authButton: {
+    backgroundColor: '#4CAF50',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  authButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 }); 

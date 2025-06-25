@@ -23,7 +23,11 @@ export interface User {
 export interface CraftPost {
   id: string;
   userId: string;
-  author: Pick<User, 'id' | 'displayName' | 'avatar'>;
+  author: {
+    id: string;
+    displayName: string;
+    avatar?: string;
+  };
   content: {
     description: string;
     images: string[];
@@ -46,6 +50,30 @@ export interface CraftPost {
   };
   isEphemeral: boolean;
   expiresAt?: Date;
+}
+
+export interface CraftStory {
+  id: string;
+  userId: string;
+  author: {
+    id: string;
+    displayName: string;
+    avatar?: string;
+  };
+  content: {
+    imageUrl?: string;
+    videoUrl?: string;
+    text?: string;
+    backgroundColor?: string;
+  };
+  craftType?: CraftSpecialization;
+  createdAt: Date;
+  expiresAt: Date; // 24 hours from creation
+  views: {
+    userId: string;
+    viewedAt: Date;
+  }[];
+  isActive: boolean; // false if expired or manually deleted
 }
 
 export interface Tool {
