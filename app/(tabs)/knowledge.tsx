@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { KnowledgeBaseScreen, SmartCraftAssistant } from '../../src/features/knowledge';
+import { KnowledgeBaseScreen, SmartCraftAssistant, PhotoAnalysisScreen } from '../../src/features/knowledge';
 
-type KnowledgeView = 'hub' | 'assistant' | 'knowledgeBase';
+type KnowledgeView = 'hub' | 'assistant' | 'knowledgeBase' | 'photoAnalysis';
 
 export default function KnowledgeTab() {
   const [currentView, setCurrentView] = useState<KnowledgeView>('hub');
@@ -15,6 +15,10 @@ export default function KnowledgeTab() {
 
   if (currentView === 'knowledgeBase') {
     return <KnowledgeBaseScreen />;
+  }
+
+  if (currentView === 'photoAnalysis') {
+    return <PhotoAnalysisScreen />;
   }
 
   // Knowledge Hub - Main navigation
@@ -38,7 +42,7 @@ export default function KnowledgeTab() {
               <Text style={styles.newBadgeText}>NEW</Text>
             </View>
           </View>
-          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Woodworking Assistant</Text>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Craft Assistant</Text>
           <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
             Get AI-powered guidance tailored to your tools and skill level. 
             Ask questions, get project suggestions, and troubleshoot problems.
@@ -46,6 +50,28 @@ export default function KnowledgeTab() {
           <View style={styles.featureFooter}>
             <Text style={styles.featureTag}>🤖 RAG-Powered</Text>
             <Text style={styles.featureTag}>🔨 Tool-Aware</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Photo Analysis */}
+        <TouchableOpacity
+          style={[styles.featureCard, styles.secondaryFeature]}
+          onPress={() => setCurrentView('photoAnalysis')}
+        >
+          <View style={styles.featureHeader}>
+            <Ionicons name="camera" size={24} color="#FFFFFF" />
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          </View>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Photo Analysis</Text>
+          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
+            Take photos of your projects and get AI-powered feedback, 
+            technique identification, and improvement suggestions.
+          </Text>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>📸 GPT-4 Vision</Text>
+            <Text style={styles.featureTag}>🎯 Technique ID</Text>
           </View>
         </TouchableOpacity>
 
@@ -60,7 +86,7 @@ export default function KnowledgeTab() {
           <Text style={styles.featureTitle}>Knowledge Base</Text>
           <Text style={styles.featureDescription}>
             Browse traditional craft techniques, tools, and methods. 
-            Searchable database of woodworking knowledge.
+            Searchable database of multi-craft knowledge.
           </Text>
           <View style={styles.featureFooter}>
             <Text style={styles.featureTag}>📚 Traditional</Text>
@@ -69,18 +95,6 @@ export default function KnowledgeTab() {
         </TouchableOpacity>
 
         {/* Coming Soon Features */}
-        <View style={[styles.featureCard, styles.comingSoonCard]}>
-          <View style={styles.featureHeader}>
-            <Ionicons name="camera" size={24} color="#666666" />
-            <Text style={styles.comingSoonBadge}>COMING SOON</Text>
-          </View>
-          <Text style={[styles.featureTitle, styles.comingSoonText]}>Photo Analysis</Text>
-          <Text style={[styles.featureDescription, styles.comingSoonText]}>
-            Take photos of your projects and get AI-powered feedback, 
-            technique identification, and improvement suggestions.
-          </Text>
-        </View>
-
         <View style={[styles.featureCard, styles.comingSoonCard]}>
           <View style={styles.featureHeader}>
             <Ionicons name="scan" size={24} color="#666666" />
@@ -139,6 +153,10 @@ const styles = StyleSheet.create({
   primaryFeature: {
     backgroundColor: '#8B4513',
     borderColor: '#8B4513',
+  },
+  secondaryFeature: {
+    backgroundColor: '#2E7D32',
+    borderColor: '#2E7D32',
   },
   featureHeader: {
     flexDirection: 'row',

@@ -34,6 +34,17 @@ export interface RAGResponse {
   followUpQuestions: string[];
 }
 
+export interface PhotoAnalysisResponse {
+  analysis: string;
+  confidence: number;
+  detectedCraft: string[];
+  identifiedTechniques: string[];
+  suggestedImprovements: string[];
+  toolRecommendations: string[];
+  followUpQuestions: string[];
+  safetyConsiderations: string[];
+}
+
 export class OpenAIService {
   private static instance: OpenAIService;
   
@@ -274,6 +285,213 @@ export class OpenAIService {
       console.error('OpenAI connection test failed:', error);
       return false;
     }
+  }
+
+  /**
+   * Analyze craft project photos using GPT-4 Vision
+   */
+  async analyzeCraftPhoto(
+    imageUri: string,
+    userQuery: string,
+    context: CraftContext,
+    knowledgeBase?: string[]
+  ): Promise<PhotoAnalysisResponse> {
+    try {
+      const systemPrompt = this.buildPhotoAnalysisSystemPrompt(context);
+      const userPrompt = this.buildPhotoAnalysisUserPrompt(userQuery, knowledgeBase);
+
+      // Convert image to base64 for API
+      const base64Image = await this.convertImageToBase64(imageUri);
+
+      // Debug logging (can be removed in production)
+      console.log('🔍 Vision API Debug Info:');
+      console.log('- Image processed, Base64 length:', base64Image.length);
+      console.log('- User query:', userQuery);
+      console.log('- Knowledge base articles:', knowledgeBase?.length || 0);
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                  detail: 'high'
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000,
+        presence_penalty: 0.1,
+        frequency_penalty: 0.1,
+      });
+
+      const response = completion.choices[0]?.message?.content || '';
+      
+      // Debug the raw response (can be removed in production)
+      console.log('🤖 GPT-4o Analysis Complete');
+      
+      return this.parsePhotoAnalysisResponse(response);
+    } catch (error) {
+      console.error('OpenAI Vision API Error:', error);
+      throw new Error('Failed to analyze craft photo');
+    }
+  }
+
+  /**
+   * Convert image URI to base64 string
+   */
+  private async convertImageToBase64(imageUri: string): Promise<string> {
+    try {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      
+             return new Promise((resolve, reject) => {
+         const reader = new FileReader();
+         reader.onloadend = () => {
+           const result = reader.result;
+           if (typeof result === 'string') {
+             // Remove the data URL prefix to get just the base64 string
+                           const base64Data = result.split(',')[1];
+              if (base64Data) {
+                resolve(base64Data);
+              } else {
+                reject(new Error('Invalid base64 data format'));
+              }
+           } else {
+             reject(new Error('Failed to read image as base64 string'));
+           }
+         };
+         reader.onerror = reject;
+         reader.readAsDataURL(blob);
+       });
+    } catch (error) {
+      console.error('Image conversion error:', error);
+      throw new Error('Failed to convert image to base64');
+    }
+  }
+
+  /**
+   * Build system prompt for photo analysis
+   */
+  private buildPhotoAnalysisSystemPrompt(context: CraftContext): string {
+    const specializations = context.userProfile?.craftSpecialization?.join(', ') || 'general crafts';
+    const skillLevel = context.userProfile?.skillLevel || 'beginner';
+    
+    return `You are an expert tool and craft analysis AI with advanced computer vision capabilities. 
+            You excel at identifying tools, materials, techniques, and craft projects from photos.
+            
+            Your primary job is to:
+            1. CLEARLY IDENTIFY what you see in the image (tools, materials, projects, etc.)
+            2. Name specific tools and their common uses
+            3. Identify craft types and techniques being shown
+            4. Provide helpful analysis and recommendations
+
+            Current user context:
+            - Craft specializations: ${specializations}
+            - Skill level: ${skillLevel}
+
+            IMPORTANT: Always start your response by clearly stating what you can see in the image. 
+            If you see a tool, name it specifically (e.g., "I can see a socket wrench" or "This appears to be a chisel").
+            If you cannot identify something, explain what you do see and why identification is difficult.
+
+            Provide your analysis in this structure:
+            - Analysis: What you observe in the image
+            - Confidence: Your confidence level (0-100%)
+            - Detected Craft: Relevant craft types
+            - Identified Techniques: Techniques shown or implied
+            - Tool Recommendations: Suggested tools or improvements
+            - Follow-up Questions: Questions to help the user learn more
+            - Safety Considerations: Any safety notes
+
+            Be direct, helpful, and specific in your identifications.`;
+  }
+
+  /**
+   * Build user prompt for photo analysis with knowledge base context
+   */
+  private buildPhotoAnalysisUserPrompt(query: string, knowledgeBase?: string[]): string {
+    let prompt = `Look at this image and answer: "${query}"
+
+First, tell me exactly what you can see in the image. Be specific about any tools, objects, or materials visible.`;
+    
+    if (knowledgeBase && knowledgeBase.length > 0) {
+      prompt += '\n\n=== RELEVANT CRAFT KNOWLEDGE ===\n';
+      prompt += 'Use the following knowledge base articles to inform your analysis:\n\n';
+      knowledgeBase.forEach((knowledge, index) => {
+        prompt += `REFERENCE ${index + 1}:\n${knowledge}\n\n`;
+      });
+      prompt += '=== END CRAFT KNOWLEDGE ===\n\n';
+    }
+
+    prompt += `\nProvide a clear, helpful response that directly addresses the user's question.`;
+    
+    return prompt;
+  }
+
+  /**
+   * Parse photo analysis response from GPT-4 Vision
+   */
+  private parsePhotoAnalysisResponse(response: string): PhotoAnalysisResponse {
+    // Extract confidence rating - handle markdown formatting
+    const confidenceMatch = response.match(/\*?\*?confidence\*?\*?[:\s]*(\d+)%?/i);
+    const confidence = confidenceMatch && confidenceMatch[1] ? parseInt(confidenceMatch[1], 10) : 75;
+
+    // Debug confidence parsing (can be removed in production)
+    console.log('🔍 Confidence extracted:', confidence + '%');
+
+    // Clean response content - handle markdown formatting
+    const cleanedResponse = response
+      .replace(/\*?\*?confidence\*?\*?[:\s]*\d+%?/gi, '')
+      .trim();
+
+    // Extract structured information (basic parsing - could be enhanced)
+    const detectedCraft = this.extractListFromResponse(response, ['craft', 'type', 'discipline']);
+    const identifiedTechniques = this.extractListFromResponse(response, ['technique', 'method', 'process']);
+    const suggestedImprovements = this.extractListFromResponse(response, ['improvement', 'suggestion', 'enhance']);
+    const toolRecommendations = this.extractListFromResponse(response, ['tool', 'equipment', 'recommend']);
+    const followUpQuestions = this.extractListFromResponse(response, ['question', 'ask', 'explore']);
+    const safetyConsiderations = this.extractListFromResponse(response, ['safety', 'caution', 'warning']);
+
+    return {
+      analysis: cleanedResponse,
+      confidence,
+      detectedCraft,
+      identifiedTechniques,
+      suggestedImprovements,
+      toolRecommendations,
+      followUpQuestions,
+      safetyConsiderations,
+    };
+  }
+
+  /**
+   * Extract lists from response text based on keywords
+   */
+  private extractListFromResponse(response: string, keywords: string[]): string[] {
+    const items: string[] = [];
+    const lines = response.split('\n');
+    
+    lines.forEach(line => {
+      // Look for bullet points or numbered lists
+      if (line.match(/^[\s]*[-•*]\s/) || line.match(/^[\s]*\d+\.\s/)) {
+        const cleanLine = line.replace(/^[\s]*[-•*\d.]\s*/, '').trim();
+        if (cleanLine.length > 0 && keywords.some(keyword => 
+          line.toLowerCase().includes(keyword.toLowerCase())
+        )) {
+          items.push(cleanLine);
+        }
+      }
+    });
+    
+    return items.slice(0, 5); // Limit to 5 items per category
   }
 }
 
