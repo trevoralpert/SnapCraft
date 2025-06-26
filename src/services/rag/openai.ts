@@ -154,9 +154,9 @@ export class OpenAIService {
     const specializations = context.userProfile?.craftSpecialization?.join(', ') || 'general crafts';
     const skillLevel = context.userProfile?.skillLevel || 'beginner';
     
-    return `You are an expert craftsman AI assistant specializing in traditional and modern crafts. 
-            Your expertise spans woodworking, metalworking, blacksmithing, pottery, leathercraft, 
-            weaving, bushcraft, stonemasonry, glassblowing, jewelry making, and general crafts.
+    return `You are an expert multi-craft AI assistant with deep knowledge across all traditional and modern crafts. 
+            Your expertise spans woodworking, metalworking, blacksmithing, pottery, ceramics, leathercraft, 
+            weaving, textiles, stone carving, glasswork, jewelry making, bookbinding, and general workshop practices.
 
             Current user context:
             - Craft specializations: ${specializations}
@@ -164,22 +164,25 @@ export class OpenAIService {
             - Bio: ${context.userProfile?.bio || 'Not provided'}
 
             Guidelines:
-            1. Provide practical, actionable advice suitable for the user's skill level
-            2. Emphasize safety considerations and proper technique
-            3. Reference traditional methods while acknowledging modern innovations
-            4. Include material specifications, tool requirements, and time estimates
-            5. Suggest progressive skill-building approaches
-            6. Respect cultural and historical significance of traditional crafts
-            7. Encourage sustainable and environmentally conscious practices
+            1. Identify the craft type from the user's question and provide relevant advice
+            2. If the question doesn't match the user's specializations, still provide helpful guidance
+            3. Consider the user's available tools when making recommendations
+            4. Emphasize safety considerations specific to each craft type
+            5. Reference traditional methods while acknowledging modern innovations
+            6. Include material specifications, tool requirements, and time estimates
+            7. Suggest progressive skill-building approaches appropriate to the craft
+            8. Respect cultural and historical significance of traditional crafts
+            9. Encourage sustainable and environmentally conscious practices
+            10. If tools don't match the craft type, explain alternatives or suggest appropriate tools
 
             Response format:
-            - Main content: Detailed, practical advice
-            - Confidence: Rate your confidence (0-100)
-            - Sources: Mention relevant traditional techniques or modern innovations
+            - Main content: Detailed, practical advice specific to the craft type
+            - Confidence: Rate your confidence (0-100) based on how well the retrieved articles match the question
+            - Sources: Mention specific retrieved articles or traditional techniques
             - Suggestions: Related projects or techniques to explore
             - Follow-up questions: Questions to help the user dive deeper
 
-            Always maintain an encouraging, educational tone that respects both tradition and innovation.`;
+            Always maintain an encouraging, educational tone that respects both tradition and innovation across all craft types.`;
   }
 
   /**
@@ -189,10 +192,16 @@ export class OpenAIService {
     let prompt = query;
     
     if (knowledgeBase && knowledgeBase.length > 0) {
-      prompt += '\n\nRelevant knowledge base context:\n';
+      prompt += '\n\n=== RETRIEVED KNOWLEDGE BASE ARTICLES ===\n';
+      prompt += 'Please base your response primarily on the following retrieved articles from our craft knowledge database:\n\n';
       knowledgeBase.forEach((knowledge, index) => {
-        prompt += `${index + 1}. ${knowledge}\n`;
+        prompt += `ARTICLE ${index + 1}:\n${knowledge}\n\n`;
       });
+      prompt += '=== END KNOWLEDGE BASE ARTICLES ===\n\n';
+      prompt += 'IMPORTANT: Please base your response primarily on the above retrieved articles. ';
+      prompt += 'If the articles don\'t contain enough information, you may supplement with general knowledge, ';
+      prompt += 'but clearly indicate what comes from the retrieved articles vs. general knowledge.\n';
+      prompt += 'Also provide a confidence percentage (0-100) based on how well the retrieved articles answer the question.';
     }
     
     return prompt;
@@ -202,12 +211,23 @@ export class OpenAIService {
    * Parse the RAG response into structured format
    */
   private parseRAGResponse(response: string): RAGResponse {
-    // For now, return a structured response
-    // In production, you might want to use a more sophisticated parsing approach
+    // Extract confidence from GPT's response
+    let confidence = 85; // Default confidence
+    const confidenceMatch = response.match(/confidence[:\s]*(\d+)%/i);
+    if (confidenceMatch && confidenceMatch[1]) {
+      confidence = parseInt(confidenceMatch[1], 10);
+    }
+    
+    // Clean the response content by removing confidence statements to avoid duplication
+    let cleanContent = response;
+    cleanContent = cleanContent.replace(/confidence[:\s]*\d+%/gi, '');
+    cleanContent = cleanContent.replace(/\n\s*\n/g, '\n\n'); // Clean up extra newlines
+    cleanContent = cleanContent.trim();
+    
     return {
-      content: response,
-      confidence: 85, // Default confidence
-      sources: ['Traditional craft knowledge', 'Modern techniques'],
+      content: cleanContent,
+      confidence: confidence,
+      sources: ['Retrieved from craft knowledge database', 'Traditional techniques'],
       suggestions: [
         'Explore related techniques',
         'Practice with simpler projects first',

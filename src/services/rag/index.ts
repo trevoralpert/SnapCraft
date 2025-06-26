@@ -61,6 +61,9 @@ export class RAGService {
         `${result.knowledge.title}: ${result.knowledge.content}`
       );
       
+      console.log(`📚 Retrieved ${knowledgeResults.length} knowledge articles:`, 
+        knowledgeResults.map(r => `"${r.knowledge.title}" (${r.relevance} relevance, score: ${r.score.toFixed(2)})`));
+      
       // Step 4: Generate AI response with knowledge context
       const aiResponse = await this.openaiService.generateCraftContent(
         ragQuery.query,

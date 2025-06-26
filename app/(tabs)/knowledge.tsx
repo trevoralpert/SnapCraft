@@ -1,6 +1,201 @@
-import React from 'react';
-import { KnowledgeBaseScreen } from '../../src/features/knowledge';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { KnowledgeBaseScreen, SmartCraftAssistant } from '../../src/features/knowledge';
+
+type KnowledgeView = 'hub' | 'assistant' | 'knowledgeBase';
 
 export default function KnowledgeTab() {
-  return <KnowledgeBaseScreen />;
-} 
+  const [currentView, setCurrentView] = useState<KnowledgeView>('hub');
+
+  if (currentView === 'assistant') {
+    return <SmartCraftAssistant />;
+  }
+
+  if (currentView === 'knowledgeBase') {
+    return <KnowledgeBaseScreen />;
+  }
+
+  // Knowledge Hub - Main navigation
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Ionicons name="library" size={32} color="#8B4513" />
+        <Text style={styles.title}>Craft Knowledge Hub</Text>
+        <Text style={styles.subtitle}>AI-powered learning and guidance</Text>
+      </View>
+
+      <View style={styles.featuresContainer}>
+        {/* Smart Craft Assistant */}
+        <TouchableOpacity
+          style={[styles.featureCard, styles.primaryFeature]}
+          onPress={() => setCurrentView('assistant')}
+        >
+          <View style={styles.featureHeader}>
+            <Ionicons name="construct" size={28} color="#FFFFFF" />
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          </View>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Woodworking Assistant</Text>
+          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
+            Get AI-powered guidance tailored to your tools and skill level. 
+            Ask questions, get project suggestions, and troubleshoot problems.
+          </Text>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>🤖 RAG-Powered</Text>
+            <Text style={styles.featureTag}>🔨 Tool-Aware</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Knowledge Base */}
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() => setCurrentView('knowledgeBase')}
+        >
+          <View style={styles.featureHeader}>
+            <Ionicons name="library" size={24} color="#8B4513" />
+          </View>
+          <Text style={styles.featureTitle}>Knowledge Base</Text>
+          <Text style={styles.featureDescription}>
+            Browse traditional craft techniques, tools, and methods. 
+            Searchable database of woodworking knowledge.
+          </Text>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>📚 Traditional</Text>
+            <Text style={styles.featureTag}>🔍 Searchable</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Coming Soon Features */}
+        <View style={[styles.featureCard, styles.comingSoonCard]}>
+          <View style={styles.featureHeader}>
+            <Ionicons name="camera" size={24} color="#666666" />
+            <Text style={styles.comingSoonBadge}>COMING SOON</Text>
+          </View>
+          <Text style={[styles.featureTitle, styles.comingSoonText]}>Photo Analysis</Text>
+          <Text style={[styles.featureDescription, styles.comingSoonText]}>
+            Take photos of your projects and get AI-powered feedback, 
+            technique identification, and improvement suggestions.
+          </Text>
+        </View>
+
+        <View style={[styles.featureCard, styles.comingSoonCard]}>
+          <View style={styles.featureHeader}>
+            <Ionicons name="scan" size={24} color="#666666" />
+            <Text style={styles.comingSoonBadge}>COMING SOON</Text>
+          </View>
+          <Text style={[styles.featureTitle, styles.comingSoonText]}>Tool Recognition</Text>
+          <Text style={[styles.featureDescription, styles.comingSoonText]}>
+            Photograph your tool collection to automatically update 
+            your inventory and get personalized recommendations.
+          </Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5DC',
+  },
+  header: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginTop: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666666',
+    marginTop: 4,
+  },
+  featuresContainer: {
+    padding: 16,
+  },
+  featureCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  primaryFeature: {
+    backgroundColor: '#8B4513',
+    borderColor: '#8B4513',
+  },
+  featureHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  newBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  newBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  featureTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 8,
+  },
+  featureDescription: {
+    fontSize: 16,
+    color: '#666666',
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  featureFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  featureTag: {
+    fontSize: 12,
+    color: '#8B4513',
+    backgroundColor: '#F5F5DC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  comingSoonCard: {
+    opacity: 0.6,
+  },
+  comingSoonBadge: {
+    fontSize: 10,
+    color: '#666666',
+    fontWeight: 'bold',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  comingSoonText: {
+    color: '#999999',
+  },
+}); 
