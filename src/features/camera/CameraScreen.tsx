@@ -81,12 +81,12 @@ export default function CameraScreen({
 
   // Toggle camera facing
   function toggleCameraFacing() {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+    setFacing((current: CameraType) => (current === 'back' ? 'front' : 'back'));
   }
 
   // Toggle flash
   function toggleFlash() {
-    setFlash(current => {
+    setFlash((current: FlashMode) => {
       switch (current) {
         case 'off': return 'on';
         case 'on': return 'auto';
@@ -137,125 +137,58 @@ export default function CameraScreen({
     }
   };
 
-  // Start/stop video recording
+  // Start/stop video recording - SIMPLIFIED APPROACH
   const toggleVideoRecording = async () => {
-    console.log('🎬 toggleVideoRecording called, isRecording:', isRecording);
-    
     if (!cameraRef.current) {
-      console.log('❌ Camera ref not available');
       return;
     }
 
-    if (isRecording) {
-      // Stop recording
-      console.log('🛑 Stopping video recording...');
-      try {
-        console.log('📹 Calling stopRecording()...');
-        // In the new API, stopRecording() returns void and triggers the recordAsync promise to resolve
+    try {
+      if (isRecording) {
+        // Stop recording
         cameraRef.current.stopRecording();
-        console.log('✅ stopRecording() called successfully');
-        // Note: The recordAsync promise will resolve automatically when recording stops
-      } catch (stopError) {
-        console.log('⚠️ Error calling stopRecording():', stopError);
-        // Force reset state if stop fails
         setIsRecording(false);
         setMode('picture');
-      }
-    } else {
-      // Start recording
-      console.log('🎬 Starting video recording...');
-      
-      try {
-        // Update UI state immediately for responsiveness
+      } else {
+        // Set mode to video first, then start recording
         setMode('video');
+        
+        // Wait for the mode change to propagate to the CameraView
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Start recording
         setIsRecording(true);
-        console.log('✅ Recording state updated to started');
         
-        // Add a small delay to ensure camera is ready
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Double-check camera ref is still available
-        if (!cameraRef.current) {
-          throw new Error('Camera ref became unavailable');
-        }
-        
-        // Start recording - this promise resolves when recording stops
-        console.log('📹 Calling recordAsync() with 60s max duration...');
-        console.log('📹 Camera ref type:', typeof cameraRef.current);
-        console.log('📹 Camera ref methods:', Object.getOwnPropertyNames(cameraRef.current));
-        
-        // Call recordAsync directly on the CameraView component
-        console.log('📹 Calling recordAsync directly on CameraView...');
-        console.log('📹 Camera ref type:', typeof cameraRef.current);
-        console.log('📹 Camera ref methods:', cameraRef.current ? Object.getOwnPropertyNames(cameraRef.current) : 'null');
-        
-        const recordPromise = cameraRef.current.recordAsync({
-          maxDuration: 60, // 60 seconds max for craft documentation
+        const video = await cameraRef.current.recordAsync({
+          maxDuration: 30, // 30 seconds max
+          maxFileSize: 100 * 1024 * 1024 // 100MB max
+          // No codec specified - let device choose the best one
         });
         
-        console.log('📹 recordAsync() called, promise created:', typeof recordPromise);
-        
-        // Set up a timeout to detect if recordAsync hangs
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('recordAsync() timed out after 65 seconds'));
-          }, 65000); // Slightly longer than maxDuration
-        });
-        
-        // Race between recording and timeout
-        const video = await Promise.race([recordPromise, timeoutPromise]) as { uri: string } | undefined;
-        
-        // This code runs when recording stops (either manually or by maxDuration)
-        console.log('✅ recordAsync completed, video result:', {
-          uri: video?.uri,
-          hasUri: !!video?.uri,
-          type: typeof video
-        });
-
-        // Reset state first
+        // Reset state
         setIsRecording(false);
         setMode('picture');
 
         if (video?.uri) {
           // Save to media library if permission granted
           if (mediaLibraryPermission?.granted) {
-            console.log('💾 Saving video to media library...');
-            try {
-              await MediaLibrary.saveToLibraryAsync(video.uri);
-              console.log('✅ Video saved to media library successfully');
-            } catch (saveError) {
-              console.log('⚠️ Error saving to media library:', saveError);
-            }
+            await MediaLibrary.saveToLibraryAsync(video.uri);
           }
           
-          // Call callback if provided
-          if (onVideoRecorded) {
-            console.log('📞 Calling onVideoRecorded callback...');
-            onVideoRecorded(video.uri);
-          }
-          
-          // Show success message
-          const message = 'Video recorded successfully! 🎥';
-          console.log('🎉 Showing success message:', message);
-          Alert.alert('Success', message);
-          
+          onVideoRecorded?.(video.uri);
+          Alert.alert('Success', 'Video recorded successfully! 🎥');
         } else {
-          console.log('❌ No video URI received');
-          Alert.alert('Error', 'Video recording failed - no video file created');
+          Alert.alert('Error', 'No video file was created');
         }
-        
-      } catch (error) {
-        console.error('❌ Error during video recording:', error);
-        
-        // Reset state on error
-        setIsRecording(false);
-        setMode('picture');
-        
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        const message = `Failed to record video: ${errorMessage}`;
-        console.log('🚨 Showing error alert:', message);
-        Alert.alert('Error', message);
       }
+    } catch (error) {
+      console.error('Error in video recording:', error);
+      
+      // Reset state on error
+      setIsRecording(false);
+      setMode('picture');
+      
+      Alert.alert('Error', `Failed to record video: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
