@@ -7,13 +7,16 @@ import {
   SafeAreaView,
   Modal,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraScreen, MediaGallery } from '@/src/features/camera';
+import { CameraScreen, MediaGallery, VideoPlayer } from '@/src/features/camera';
 
 export default function CameraTab() {
   const [showCamera, setShowCamera] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [selectedVideoUri, setSelectedVideoUri] = useState<string>('');
 
   const handlePhotoTaken = (uri: string) => {
     console.log('Photo taken:', uri);
@@ -32,12 +35,18 @@ export default function CameraTab() {
     console.log('Video recorded:', uri);
     setShowCamera(false);
     
-    // Show success message
-    const message = 'Excellent process documentation! Video saved successfully. 🎥';
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert(message);
+    // For mock videos, show them in the video player
+    if (uri.startsWith('mock://')) {
+      setSelectedVideoUri(uri);
+      setShowVideoPlayer(true);
     } else {
-      Alert.alert('Success', message);
+      // For real videos, show success message
+      const message = 'Excellent process documentation! Video saved successfully. 🎥';
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(message);
+      } else {
+        Alert.alert('Success', message);
+      }
     }
   };
 
@@ -45,12 +54,18 @@ export default function CameraTab() {
     console.log('Media selected:', media);
     setShowGallery(false);
     
-    // Show selection message
-    const message = `Selected ${media.mediaType}: ${media.filename}`;
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert(message);
+    // For videos, open in video player
+    if (media.mediaType === 'video') {
+      setSelectedVideoUri(media.uri);
+      setShowVideoPlayer(true);
     } else {
-      Alert.alert('Media Selected', message);
+      // For photos, show selection message
+      const message = `Selected ${media.mediaType}: ${media.filename}`;
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(message);
+      } else {
+        Alert.alert('Media Selected', message);
+      }
     }
   };
 
@@ -65,7 +80,7 @@ export default function CameraTab() {
       </View>
 
       {/* Main Content */}
-      <View style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Camera Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -134,7 +149,7 @@ export default function CameraTab() {
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Camera Modal */}
       <Modal
@@ -160,6 +175,19 @@ export default function CameraTab() {
           onClose={() => setShowGallery(false)}
         />
       </Modal>
+
+      {/* Video Player Modal */}
+      {selectedVideoUri && (
+        <VideoPlayer
+          videoUri={selectedVideoUri}
+          visible={showVideoPlayer}
+          onClose={() => {
+            setShowVideoPlayer(false);
+            setSelectedVideoUri('');
+          }}
+          title="Craft Process Video"
+        />
+      )}
     </SafeAreaView>
   );
 }

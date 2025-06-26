@@ -1,6 +1,7 @@
 // Camera feature exports
 export { default as CameraScreen } from './CameraScreen';
 export { default as MediaGallery } from './MediaGallery';
+export { default as VideoPlayer } from './VideoPlayer';
 
 // Types
 export interface MediaItem {

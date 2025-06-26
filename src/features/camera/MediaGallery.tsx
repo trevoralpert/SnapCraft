@@ -13,6 +13,7 @@ import {
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
+import VideoPlayer from './VideoPlayer';
 
 const { width: screenWidth } = Dimensions.get('window');
 const itemSize = (screenWidth - 60) / 3; // 3 columns with padding
@@ -41,6 +42,8 @@ export default function MediaGallery({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [permission, requestPermission] = MediaLibrary.usePermissions();
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<MediaItem | null>(null);
 
   useEffect(() => {
     loadMedia();
@@ -102,7 +105,12 @@ export default function MediaGallery({
         newSelected.add(item.id);
       }
       setSelectedItems(newSelected);
+    } else if (item.mediaType === 'video') {
+      // Open video player for videos
+      setSelectedVideo(item);
+      setShowVideoPlayer(true);
     } else {
+      // For photos, use the existing callback
       onMediaSelect?.(item);
     }
   };
@@ -252,6 +260,19 @@ export default function MediaGallery({
           🎥 {mediaItems.filter(item => item.mediaType === 'video').length} Videos
         </Text>
       </View>
+
+      {/* Video Player Modal */}
+      {selectedVideo && (
+        <VideoPlayer
+          videoUri={selectedVideo.uri}
+          visible={showVideoPlayer}
+          onClose={() => {
+            setShowVideoPlayer(false);
+            setSelectedVideo(null);
+          }}
+          title={`Craft Video - ${selectedVideo.filename}`}
+        />
+      )}
     </SafeAreaView>
   );
 }

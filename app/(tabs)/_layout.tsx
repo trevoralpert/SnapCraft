@@ -1,11 +1,12 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { LogoutButton } from '@/src/shared/components/LogoutButton';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -32,34 +33,39 @@ export default function TabLayout() {
           title: 'Craft Feed',
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="plus-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Link href="/modal" asChild>
+                <Pressable>
+                  {({ pressed }) => (
+                    <FontAwesome
+                      name="plus-circle"
+                      size={25}
+                      color={Colors[colorScheme ?? 'light'].text}
+                      style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
+                    />
+                  )}
+                </Pressable>
+              </Link>
+              <LogoutButton color={Colors[colorScheme ?? 'light'].text} />
+            </View>
           ),
         }}
       />
 
       <Tabs.Screen
-        name="camera"
-        options={{
-          title: 'Camera',
-          tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="tools"
         options={{
           title: 'Tools',
           tabBarIcon: ({ color }) => <TabBarIcon name="wrench" color={color} />,
+          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
+        }}
+      />
+      <Tabs.Screen
+        name="camera"
+        options={{
+          title: 'Camera',
+          tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
+          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
         }}
       />
       <Tabs.Screen
@@ -67,6 +73,7 @@ export default function TabLayout() {
         options={{
           title: 'Knowledge',
           tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} />,
+          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
         }}
       />
       <Tabs.Screen
@@ -74,6 +81,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
         }}
       />
     </Tabs>

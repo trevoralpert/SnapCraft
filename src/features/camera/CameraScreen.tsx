@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions, FlashMode } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,7 @@ export default function CameraScreen({
 }: CameraScreenProps) {
   // Camera permissions and setup
   const [permission, requestPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [mediaLibraryPermission, requestMediaLibraryPermission] = MediaLibrary.usePermissions();
   
   // Camera state
@@ -50,26 +51,29 @@ export default function CameraScreen({
     if (!permission?.granted) {
       await requestPermission();
     }
+    if (!microphonePermission?.granted) {
+      await requestMicrophonePermission();
+    }
     if (!mediaLibraryPermission?.granted) {
       await requestMediaLibraryPermission();
     }
   };
 
   // Check if permissions are granted
-  if (!permission) {
+  if (!permission || !microphonePermission) {
     return (
       <View style={styles.container}>
-        <Text style={styles.message}>Requesting camera permissions...</Text>
+        <Text style={styles.message}>Requesting permissions...</Text>
       </View>
     );
   }
 
-  if (!permission.granted) {
+  if (!permission.granted || !microphonePermission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={styles.message}>Camera access is required for craft documentation</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+        <Text style={styles.message}>Camera and microphone access is required for video recording</Text>
+        <TouchableOpacity style={styles.permissionButton} onPress={requestPermissions}>
+          <Text style={styles.permissionButtonText}>Grant Permissions</Text>
         </TouchableOpacity>
       </View>
     );
@@ -142,112 +146,114 @@ export default function CameraScreen({
       return;
     }
 
-    try {
-      if (isRecording) {
-        // Stop recording
-        console.log('🛑 Stopping video recording...');
+    if (isRecording) {
+      // Stop recording
+      console.log('🛑 Stopping video recording...');
+      try {
+        console.log('📹 Calling stopRecording()...');
+        // In the new API, stopRecording() returns void and triggers the recordAsync promise to resolve
+        cameraRef.current.stopRecording();
+        console.log('✅ stopRecording() called successfully');
+        // Note: The recordAsync promise will resolve automatically when recording stops
+      } catch (stopError) {
+        console.log('⚠️ Error calling stopRecording():', stopError);
+        // Force reset state if stop fails
         setIsRecording(false);
-        setMode('picture'); // Switch back to photo mode
-        console.log('✅ Recording stopped, switched to picture mode');
-      } else {
-        // Start recording
-        console.log('🎬 Starting video recording...');
-        console.log('📱 Camera ref available:', !!cameraRef.current);
-        
-        setMode('video'); // Switch to video mode
+        setMode('picture');
+      }
+    } else {
+      // Start recording
+      console.log('🎬 Starting video recording...');
+      
+      try {
+        // Update UI state immediately for responsiveness
+        setMode('video');
         setIsRecording(true);
-        console.log('🔄 Set recording state to true, mode to video');
+        console.log('✅ Recording state updated to started');
         
-        // Check if we're in Expo Go (which has video limitations)
-        const isExpoGo = typeof window !== 'undefined' && window.alert;
+        // Add a small delay to ensure camera is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        if (isExpoGo) {
-          // Mock video recording for Expo Go
-          console.log('🎭 Using mock video recording (Expo Go limitation)');
-          
-          // Simulate recording for 3 seconds minimum
-          const startTime = Date.now();
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          
-          // Always create a mock video (even if stopped early)
-          const recordingDuration = Date.now() - startTime;
-          const mockVideoUri = `mock://video-${Date.now()}.mp4`;
-          console.log('✅ Mock video recorded:', { uri: mockVideoUri, duration: `${recordingDuration}ms` });
-          
-          // Call callback if provided
-          console.log('📞 Calling onVideoRecorded callback...');
-          onVideoRecorded?.(mockVideoUri);
-          
-          // Show success message
-          const message = `Video recorded successfully! 🎥 (Demo mode - ${Math.round(recordingDuration/1000)}s mock video)`;
-          console.log('🎉 Showing success message:', message);
-          window.alert(message);
-          
-          // Ensure recording state is off
-          setIsRecording(false);
-          setMode('picture');
-        } else {
-          // Try real video recording for development builds
-          console.log('📹 Attempting real video recording...');
-          
-          // Add timeout to prevent hanging
-          const recordPromise = cameraRef.current.recordAsync({
-            maxDuration: 60, // 60 seconds max for craft documentation
-          });
-          
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Recording timeout - Expo Go may have limitations')), 5000);
-          });
-          
-          const video = await Promise.race([recordPromise, timeoutPromise]) as { uri?: string };
+        // Double-check camera ref is still available
+        if (!cameraRef.current) {
+          throw new Error('Camera ref became unavailable');
+        }
+        
+        // Start recording - this promise resolves when recording stops
+        console.log('📹 Calling recordAsync() with 60s max duration...');
+        console.log('📹 Camera ref type:', typeof cameraRef.current);
+        console.log('📹 Camera ref methods:', Object.getOwnPropertyNames(cameraRef.current));
+        
+        // Call recordAsync directly on the CameraView component
+        console.log('📹 Calling recordAsync directly on CameraView...');
+        console.log('📹 Camera ref type:', typeof cameraRef.current);
+        console.log('📹 Camera ref methods:', cameraRef.current ? Object.getOwnPropertyNames(cameraRef.current) : 'null');
+        
+        const recordPromise = cameraRef.current.recordAsync({
+          maxDuration: 60, // 60 seconds max for craft documentation
+        });
+        
+        console.log('📹 recordAsync() called, promise created:', typeof recordPromise);
+        
+        // Set up a timeout to detect if recordAsync hangs
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('recordAsync() timed out after 65 seconds'));
+          }, 65000); // Slightly longer than maxDuration
+        });
+        
+        // Race between recording and timeout
+        const video = await Promise.race([recordPromise, timeoutPromise]) as { uri: string } | undefined;
+        
+        // This code runs when recording stops (either manually or by maxDuration)
+        console.log('✅ recordAsync completed, video result:', {
+          uri: video?.uri,
+          hasUri: !!video?.uri,
+          type: typeof video
+        });
 
-          console.log('✅ Video recorded successfully:', {
-            uri: video?.uri,
-            duration: video?.uri ? 'Available' : 'Not available'
-          });
+        // Reset state first
+        setIsRecording(false);
+        setMode('picture');
 
-          if (video?.uri) {
-            // Save to media library if permission granted
-            if (mediaLibraryPermission?.granted) {
-              console.log('💾 Saving video to media library...');
+        if (video?.uri) {
+          // Save to media library if permission granted
+          if (mediaLibraryPermission?.granted) {
+            console.log('💾 Saving video to media library...');
+            try {
               await MediaLibrary.saveToLibraryAsync(video.uri);
-              console.log('✅ Video saved to media library');
-            } else {
-              console.log('⚠️ Media library permission not granted, skipping save');
+              console.log('✅ Video saved to media library successfully');
+            } catch (saveError) {
+              console.log('⚠️ Error saving to media library:', saveError);
             }
-            
-            // Call callback if provided
-            console.log('📞 Calling onVideoRecorded callback...');
-            onVideoRecorded?.(video.uri);
-            
-            // Show success message
-            const message = 'Video recorded successfully! 🎥';
-            console.log('🎉 Showing success message:', message);
-            if (typeof window !== 'undefined' && window.alert) {
-              window.alert(message);
-            } else {
-              Alert.alert('Success', message);
-            }
-          } else {
-            console.log('❌ No video URI returned from recordAsync');
           }
           
-          console.log('🔄 Setting recording state to false');
-          setIsRecording(false);
+          // Call callback if provided
+          if (onVideoRecorded) {
+            console.log('📞 Calling onVideoRecorded callback...');
+            onVideoRecorded(video.uri);
+          }
+          
+          // Show success message
+          const message = 'Video recorded successfully! 🎥';
+          console.log('🎉 Showing success message:', message);
+          Alert.alert('Success', message);
+          
+        } else {
+          console.log('❌ No video URI received');
+          Alert.alert('Error', 'Video recording failed - no video file created');
         }
-      }
-    } catch (error) {
-      console.error('❌ Error with video recording:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('❌ Error details:', {
-        message: errorMessage,
-        error: error
-      });
-      setIsRecording(false);
-      const message = `Failed to record video: ${errorMessage}`;
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert(message);
-      } else {
+        
+      } catch (error) {
+        console.error('❌ Error during video recording:', error);
+        
+        // Reset state on error
+        setIsRecording(false);
+        setMode('picture');
+        
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        const message = `Failed to record video: ${errorMessage}`;
+        console.log('🚨 Showing error alert:', message);
         Alert.alert('Error', message);
       }
     }
