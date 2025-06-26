@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,9 @@ import {
   Modal,
   SafeAreaView,
 } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -28,18 +29,64 @@ export default function VideoPlayer({
   title = "Craft Process Video" 
 }: VideoPlayerProps) {
   const [showControls, setShowControls] = useState(true);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [currentPosition, setCurrentPosition] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<Video>(null);
   
-  // For mock videos, we'll show a placeholder since expo-video can't play mock URIs
+  // For mock videos, we'll show a placeholder
   const isMockVideo = videoUri.startsWith('mock://');
-  
-  const player = useVideoPlayer(isMockVideo ? '' : videoUri, (player) => {
-    if (!isMockVideo) {
-      player.loop = false;
-      player.muted = false;
-    }
-  });
 
-  const handlePlayPause = () => {
+  // Verify file exists when component mounts
+  useEffect(() => {
+    const verifyVideoFile = async () => {
+      if (!isMockVideo && videoUri) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(videoUri);
+          console.log('🎥 Video file verification:', {
+            uri: videoUri,
+            exists: fileInfo.exists,
+            size: fileInfo.exists ? (fileInfo as any).size : 'N/A',
+            isDirectory: fileInfo.exists ? fileInfo.isDirectory : 'N/A'
+          });
+          
+          if (!fileInfo.exists) {
+            console.error('🎥 Video file does not exist at URI:', videoUri);
+            Alert.alert('Video Error', 'Video file not found');
+          }
+        } catch (error) {
+          console.error('🎥 Error verifying video file:', error);
+        }
+      }
+    };
+    
+    verifyVideoFile();
+  }, [videoUri, isMockVideo]);
+
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    console.log('🎥 Playback status update:', status);
+    
+    if (status.isLoaded) {
+      setIsLoaded(true);
+      setIsPlaying(status.isPlaying);
+      setCurrentPosition(status.positionMillis || 0);
+      
+      if (status.durationMillis && status.durationMillis !== videoDuration) {
+        setVideoDuration(status.durationMillis);
+        console.log('🎥 Video duration set:', status.durationMillis);
+      }
+    } else {
+      setIsLoaded(false);
+      if (status.error) {
+        console.error('🎥 Video playback error:', status.error);
+        console.log('🎥 Video URI that failed:', videoUri);
+        // Don't show alert for now, let's see if native controls work
+      }
+    }
+  };
+
+  const handlePlayPause = async () => {
     if (isMockVideo) {
       Alert.alert(
         'Demo Video', 
@@ -48,19 +95,21 @@ export default function VideoPlayer({
       return;
     }
 
+    if (!videoRef.current) return;
+
     try {
-      if (player.playing) {
-        player.pause();
+      if (isPlaying) {
+        await videoRef.current.pauseAsync();
       } else {
-        player.play();
+        await videoRef.current.playAsync();
       }
     } catch (error) {
-      console.error('Error controlling video playback:', error);
+      console.error('🎥 Error controlling video playback:', error);
       Alert.alert('Error', 'Failed to control video playback');
     }
   };
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     if (isMockVideo) {
       Alert.alert(
         'Demo Video', 
@@ -69,31 +118,40 @@ export default function VideoPlayer({
       return;
     }
 
+    if (!videoRef.current) return;
+
     try {
-      player.currentTime = 0;
-      player.play();
+      await videoRef.current.setPositionAsync(0);
+      await videoRef.current.playAsync();
     } catch (error) {
-      console.error('Error restarting video:', error);
+      console.error('🎥 Error restarting video:', error);
       Alert.alert('Error', 'Failed to restart video');
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const formatTime = (milliseconds: number) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleVideoPress = () => {
     setShowControls(!showControls);
   };
 
-  const handleClose = () => {
-    if (!isMockVideo && player.playing) {
-      player.pause();
+  const handleClose = async () => {
+    if (!isMockVideo && videoRef.current && isPlaying) {
+      try {
+        await videoRef.current.pauseAsync();
+      } catch (error) {
+        console.log('🎥 Error pausing video on close:', error);
+      }
     }
     onClose();
   };
+
+  const progressPercentage = videoDuration > 0 ? (currentPosition / videoDuration) * 100 : 0;
 
   return (
     <Modal
@@ -135,12 +193,16 @@ export default function VideoPlayer({
               </View>
             </View>
           ) : (
-            // Real video player
-            <VideoView
+            // Real video player using expo-av with native controls
+            <Video
+              ref={videoRef}
               style={styles.video}
-              player={player}
-              allowsFullscreen
-              allowsPictureInPicture
+              source={{ uri: videoUri }}
+              useNativeControls={true}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={false}
+              isLooping={false}
+              onPlaybackStatusUpdate={onPlaybackStatusUpdate}
             />
           )}
 
@@ -154,7 +216,7 @@ export default function VideoPlayer({
               >
                 <View style={styles.playButtonBackground}>
                   <Ionicons 
-                    name={isMockVideo ? "play" : (player.playing ? "pause" : "play")} 
+                    name={isMockVideo ? "play" : (isPlaying ? "pause" : "play")} 
                     size={48} 
                     color="white" 
                   />
@@ -169,11 +231,7 @@ export default function VideoPlayer({
                     <View 
                       style={[
                         styles.progressFill, 
-                        { 
-                          width: isMockVideo 
-                            ? '0%' 
-                            : `${(player.currentTime / (player.duration || 1)) * 100}%`
-                        }
+                        { width: isMockVideo ? '0%' : `${progressPercentage}%` }
                       ]} 
                     />
                   </View>
@@ -184,7 +242,7 @@ export default function VideoPlayer({
                   <Text style={styles.timeText}>
                     {isMockVideo 
                       ? '0:00 / 0:00 (Demo)'
-                      : `${formatTime(player.currentTime)} / ${formatTime(player.duration || 0)}`
+                      : `${formatTime(currentPosition)} / ${formatTime(videoDuration)}`
                     }
                   </Text>
 
@@ -201,7 +259,7 @@ export default function VideoPlayer({
                       onPress={handlePlayPause}
                     >
                       <Ionicons 
-                        name={isMockVideo ? "play" : (player.playing ? "pause" : "play")} 
+                        name={isMockVideo ? "play" : (isPlaying ? "pause" : "play")} 
                         size={24} 
                         color="white" 
                       />
@@ -225,9 +283,11 @@ export default function VideoPlayer({
           <View style={styles.infoRow}>
             <Ionicons name="time" size={20} color="#8B4513" />
             <Text style={styles.infoText}>
-              {isMockVideo 
-                ? 'Duration: Demo mode (real timing in dev builds)'
-                : `Duration: ${formatTime(player.duration || 0)}`
+              Duration: {isMockVideo 
+                ? 'Demo mode' 
+                : isLoaded && videoDuration > 0
+                  ? formatTime(videoDuration) 
+                  : 'Loading...'
               }
             </Text>
           </View>

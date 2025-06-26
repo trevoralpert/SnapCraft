@@ -96,7 +96,7 @@ export default function MediaGallery({
     }
   };
 
-  const handleMediaPress = (item: MediaItem) => {
+  const handleMediaPress = async (item: MediaItem) => {
     if (allowMultiSelect) {
       const newSelected = new Set(selectedItems);
       if (newSelected.has(item.id)) {
@@ -106,9 +106,27 @@ export default function MediaGallery({
       }
       setSelectedItems(newSelected);
     } else if (item.mediaType === 'video') {
-      // Open video player for videos
-      setSelectedVideo(item);
-      setShowVideoPlayer(true);
+      // For videos, we need to get the actual file URI since MediaLibrary returns ph:// URIs
+      try {
+        console.log('🎥 Getting video info for playback:', item.uri);
+        const asset = await MediaLibrary.getAssetInfoAsync(item.id);
+        console.log('🎥 Asset info:', asset);
+        
+        // Create a video item with the local URI
+        const videoItem = {
+          ...item,
+          uri: asset.localUri || asset.uri || item.uri
+        };
+        
+        console.log('🎥 Opening video with URI:', videoItem.uri);
+        setSelectedVideo(videoItem);
+        setShowVideoPlayer(true);
+      } catch (error) {
+        console.error('🎥 Error getting video asset info:', error);
+        // Fallback to original URI
+        setSelectedVideo(item);
+        setShowVideoPlayer(true);
+      }
     } else {
       // For photos, use the existing callback
       onMediaSelect?.(item);

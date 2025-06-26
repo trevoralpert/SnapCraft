@@ -12,6 +12,7 @@ import {
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions, FlashMode } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -42,10 +43,20 @@ export default function CameraScreen({
   // Camera ref
   const cameraRef = useRef<CameraView>(null);
 
-  // Request permissions on mount
+  // Request permissions on mount and check available codecs
   useEffect(() => {
     requestPermissions();
+    checkAvailableCodecs();
   }, []);
+
+  const checkAvailableCodecs = async () => {
+    try {
+      const codecs = await CameraView.getAvailableVideoCodecsAsync();
+      console.log('📹 Available video codecs on this device:', codecs);
+    } catch (error) {
+      console.log('📹 Could not get available codecs:', error);
+    }
+  };
 
   const requestPermissions = async () => {
     if (!permission?.granted) {
@@ -162,7 +173,14 @@ export default function CameraScreen({
         const video = await cameraRef.current.recordAsync({
           maxDuration: 30, // 30 seconds max
           maxFileSize: 100 * 1024 * 1024 // 100MB max
-          // No codec specified - let device choose the best one
+          // Let device choose the best codec automatically
+        });
+        
+        // Debug: Log video information
+        console.log('🎥 Video recording completed:', {
+          uri: video?.uri,
+          type: typeof video,
+          hasUri: !!video?.uri
         });
         
         // Reset state
@@ -170,13 +188,47 @@ export default function CameraScreen({
         setMode('picture');
 
         if (video?.uri) {
-          // Save to media library if permission granted
-          if (mediaLibraryPermission?.granted) {
-            await MediaLibrary.saveToLibraryAsync(video.uri);
+          // Debug: Check file information
+          try {
+            const fileInfo = await FileSystem.getInfoAsync(video.uri);
+            console.log('🎥 Video file info:', {
+              exists: fileInfo.exists,
+              size: fileInfo.exists ? (fileInfo as any).size : 'N/A',
+              uri: video.uri
+            });
+          } catch (error) {
+            console.log('🎥 Could not check file info:', error);
           }
           
-          onVideoRecorded?.(video.uri);
-          Alert.alert('Success', 'Video recorded successfully! 🎥');
+          // Copy video to Documents directory for better access
+          try {
+            const fileName = `craft_video_${Date.now()}.mov`;
+            const documentsDir = FileSystem.documentDirectory;
+            const newUri = documentsDir + fileName;
+            
+            console.log('🎥 Copying video from cache to documents...');
+            await FileSystem.copyAsync({
+              from: video.uri,
+              to: newUri
+            });
+            
+            console.log('🎥 Video copied to:', newUri);
+            
+            // Save original to media library if permission granted
+            if (mediaLibraryPermission?.granted) {
+              await MediaLibrary.saveToLibraryAsync(video.uri);
+              console.log('🎥 Video saved to media library');
+            }
+            
+            // Use the copied video URI for playback
+            onVideoRecorded?.(newUri);
+            Alert.alert('Success', 'Video recorded successfully! 🎥');
+          } catch (copyError) {
+            console.error('🎥 Error copying video:', copyError);
+            // Fallback to original URI if copy fails
+            onVideoRecorded?.(video.uri);
+            Alert.alert('Success', 'Video recorded successfully! 🎥');
+          }
         } else {
           Alert.alert('Error', 'No video file was created');
         }

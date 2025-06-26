@@ -35,18 +35,20 @@ export default function CameraTab() {
     console.log('Video recorded:', uri);
     setShowCamera(false);
     
-    // For mock videos, show them in the video player
-    if (uri.startsWith('mock://')) {
-      setSelectedVideoUri(uri);
-      setShowVideoPlayer(true);
-    } else {
-      // For real videos, show success message
-      const message = 'Excellent process documentation! Video saved successfully. 🎥';
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert(message);
-      } else {
-        Alert.alert('Success', message);
-      }
+    // For both mock and real videos, open them in the video player
+    setSelectedVideoUri(uri);
+    setShowVideoPlayer(true);
+    
+    // Show success message for real videos
+    if (!uri.startsWith('mock://')) {
+      setTimeout(() => {
+        const message = 'Excellent process documentation! Video recorded and ready to view. 🎥';
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(message);
+        } else {
+          Alert.alert('Success', message);
+        }
+      }, 500); // Delay to let video player open first
     }
   };
 
