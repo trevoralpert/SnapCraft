@@ -173,5 +173,5 @@ export const generatePostImagePath = (userId: string, postId?: string): string =
  */
 export const generateStoryImagePath = (userId: string, storyId?: string): string => {
   const id = storyId || `story_${Date.now()}`;
-  return `stories/${userId}/${id}/`;
+  return `craftStories/${userId}/${id}/`;
 }; 

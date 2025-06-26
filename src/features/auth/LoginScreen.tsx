@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,20 +10,65 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../stores/authStore';
+
+const REMEMBER_ME_KEY = '@snapcraft_remember_me';
+const SAVED_CREDENTIALS_KEY = '@snapcraft_saved_credentials';
 
 export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Load saved credentials on component mount
+  useEffect(() => {
+    loadSavedCredentials();
+  }, []);
 
   // Debug form field changes
   React.useEffect(() => {
-    console.log('📊 Form state:', { email, password, displayName, isSignUp });
-  }, [email, password, displayName, isSignUp]);
+    console.log('📊 Form state:', { email, password, displayName, isSignUp, rememberMe });
+  }, [email, password, displayName, isSignUp, rememberMe]);
 
   const { signIn, signUp, isLoading, error, clearError } = useAuthStore();
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedRememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY);
+      if (savedRememberMe === 'true') {
+        setRememberMe(true);
+        const savedCredentials = await AsyncStorage.getItem(SAVED_CREDENTIALS_KEY);
+        if (savedCredentials) {
+          const { email: savedEmail, password: savedPassword } = JSON.parse(savedCredentials);
+          setEmail(savedEmail || '');
+          setPassword(savedPassword || '');
+          console.log('📱 Loaded saved credentials for:', savedEmail);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved credentials:', error);
+    }
+  };
+
+  const saveCredentials = async (email: string, password: string) => {
+    try {
+      if (rememberMe) {
+        await AsyncStorage.setItem(REMEMBER_ME_KEY, 'true');
+        await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+        console.log('💾 Credentials saved for:', email);
+      } else {
+        await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+        await AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY);
+        console.log('🗑️ Credentials cleared');
+      }
+    } catch (error) {
+      console.error('Error saving credentials:', error);
+    }
+  };
 
   const handleSubmit = async () => {
     console.log('🚀 Authentication started:', { email, isSignUp });
@@ -44,29 +89,41 @@ export function LoginScreen() {
         console.log('📝 Starting signUp...');
         await signUp(email, password, displayName);
         console.log('✅ SignUp successful');
+        
+        // Save credentials if remember me is checked
+        await saveCredentials(email, password);
+        
         // Use web-compatible notification
         if (typeof window !== 'undefined' && window.alert) {
           window.alert('Success: Account created! Welcome to SnapCraft!');
         } else {
           Alert.alert('Success', 'Account created! Welcome to SnapCraft!');
         }
-        // Clear form only after successful authentication
-        setEmail('');
-        setPassword('');
+        // Clear form only after successful authentication (unless remembering)
+        if (!rememberMe) {
+          setEmail('');
+          setPassword('');
+        }
         setDisplayName('');
       } else {
         console.log('🔑 Starting signIn...');
         await signIn(email, password);
         console.log('✅ SignIn successful');
+        
+        // Save credentials if remember me is checked
+        await saveCredentials(email, password);
+        
         // Use web-compatible notification
         if (typeof window !== 'undefined' && window.alert) {
           window.alert('Success: Welcome back to SnapCraft!');
         } else {
           Alert.alert('Success', 'Welcome back to SnapCraft!');
         }
-        // Clear form only after successful authentication
-        setEmail('');
-        setPassword('');
+        // Clear form only after successful authentication (unless remembering)
+        if (!rememberMe) {
+          setEmail('');
+          setPassword('');
+        }
       }
     } catch (err: any) {
       console.error('❌ Authentication error:', err);
@@ -163,6 +220,19 @@ export function LoginScreen() {
           autoCapitalize="none"
         />
 
+        {/* Remember Me Checkbox */}
+        <TouchableOpacity 
+          style={styles.rememberMeContainer} 
+          onPress={() => setRememberMe(!rememberMe)}
+        >
+          <View style={styles.checkbox}>
+            {rememberMe && (
+              <Ionicons name="checkmark" size={16} color="#8B4513" />
+            )}
+          </View>
+          <Text style={styles.rememberMeText}>Remember me</Text>
+        </TouchableOpacity>
+
         {error && (
           <Text style={styles.errorText}>{error}</Text>
         )}
@@ -233,6 +303,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#DDD',
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingLeft: 4,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    borderRadius: 3,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  rememberMeText: {
+    fontSize: 16,
+    color: '#8B4513',
   },
   button: {
     backgroundColor: '#8B4513',

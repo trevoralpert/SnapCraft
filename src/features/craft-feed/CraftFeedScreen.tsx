@@ -134,6 +134,18 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   const loadPosts = async () => {
     try {
       console.log('📄 Loading posts from Firebase...');
+      console.log('🔍 Auth state:', { user: !!user, userId: user?.id });
+      
+      // Check if user is authenticated
+      if (!user) {
+        console.log('⚠️ User not authenticated, using mock data');
+        setPosts(MOCK_CRAFT_POSTS);
+        setError('Authentication required for live data');
+        showInfo('Demo Mode', 'Sign in to see live content');
+        setLoading(false);
+        return;
+      }
+      
       const fetchedPosts = await getPosts(50);
       setPosts(fetchedPosts);
       setError(null); // Clear any previous errors
@@ -150,10 +162,10 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
     }
   };
 
-  // Load posts on component mount
+  // Load posts on component mount and when user changes
   useEffect(() => {
     loadPosts();
-  }, []);
+  }, [user]); // Reload when user authentication state changes
 
   // Refresh feed
   const onRefresh = async () => {
@@ -416,12 +428,19 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Development Environment Indicator */}
-      {__DEV__ && error && (
+      {/* Environment Indicator */}
+      {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>
-            ⚠️ Using cached content - {error}
+            {error.includes('permissions') || error.includes('Authentication') 
+              ? '🔐 Sign in to access live content' 
+              : `⚠️ Using cached content - ${error}`}
           </Text>
+          {(error.includes('permissions') || error.includes('Authentication')) && (
+            <Text style={styles.errorSubtext}>
+              Currently showing demo content
+            </Text>
+          )}
         </View>
       )}
 
@@ -748,5 +767,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8B4513',
     textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
   },
 }); 

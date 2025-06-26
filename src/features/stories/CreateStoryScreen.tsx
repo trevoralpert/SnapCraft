@@ -112,7 +112,7 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
 
              // Upload image if selected
        if (selectedImage) {
-         const imagePath = `stories/${currentUserId}/${Date.now()}.jpg`;
+         const imagePath = `craftStories/${currentUserId}/story_${Date.now()}/image.jpg`;
          const uploadResult = await uploadImage(selectedImage, imagePath);
          imageUrl = uploadResult.url;
        }

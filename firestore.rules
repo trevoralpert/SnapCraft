@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for security
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isOwnerOfResource() {
+      return request.auth.uid == resource.data.userId;
+    }
+    
+    function isOwnerOfRequest() {
+      return request.auth.uid == request.resource.data.userId;
+    }
+    
+    function isValidUser() {
+      return isAuthenticated() && 
+             request.auth.uid != null && 
+             request.auth.uid.size() > 0;
+    }
+    
+    // Users collection - users can only access their own data
+    match /users/{userId} {
+      allow read, write: if isValidUser() && isOwner(userId);
+      allow create: if isValidUser() && isOwner(userId) && 
+                    request.resource.data.keys().hasAll(['email', 'displayName', 'craftSpecialization', 'skillLevel']);
+    }
+    
+    // Posts collection - readable by authenticated users, writable by owner
+    match /craftPosts/{postId} {
+      allow read: if isValidUser();
+      allow create: if isValidUser() && 
+                    isOwnerOfRequest() &&
+                    request.resource.data.keys().hasAll(['userId', 'content', 'craftType', 'createdAt']) &&
+                    request.resource.data.content.keys().hasAll(['description']) &&
+                    request.resource.data.craftType is string &&
+                    request.resource.data.content.description is string &&
+                    request.resource.data.content.description.size() <= 1000;
+      allow update: if isValidUser() && 
+                    isOwnerOfResource() &&
+                    request.resource.data.userId == resource.data.userId; // Prevent userId changes
+      allow delete: if isValidUser() && isOwnerOfResource();
+    }
+    
+    // Stories collection - ephemeral content, 24-hour TTL
+    match /craftStories/{storyId} {
+      allow read: if isValidUser(); // Simplified for testing - all authenticated users can read active stories
+      allow create: if isValidUser() && 
+                    isOwnerOfRequest() &&
+                    request.resource.data.userId is string &&
+                    request.resource.data.author is map &&
+                    request.resource.data.content is map;
+      allow update: if isValidUser() && 
+                    isOwnerOfResource();
+      allow delete: if isValidUser() && isOwnerOfResource();
+    }
+    
+    // Comments collection - readable by authenticated users, writable by owner
+    match /comments/{commentId} {
+      allow read: if isValidUser();
+      allow create: if isValidUser() && 
+                    isOwnerOfRequest() &&
+                    request.resource.data.keys().hasAll(['userId', 'postId', 'content', 'createdAt']) &&
+                    request.resource.data.content is string &&
+                    request.resource.data.content.size() <= 500 &&
+                    request.resource.data.postId is string;
+      allow update: if isValidUser() && 
+                    isOwnerOfResource() &&
+                    request.resource.data.userId == resource.data.userId &&
+                    request.resource.data.postId == resource.data.postId; // Prevent postId changes
+      allow delete: if isValidUser() && isOwnerOfResource();
+    }
+    
+    // Likes collection - for tracking post likes
+    match /likes/{likeId} {
+      allow read: if isValidUser();
+      allow create: if isValidUser() && 
+                    isOwnerOfRequest() &&
+                    request.resource.data.keys().hasAll(['userId', 'postId', 'createdAt']);
+      allow delete: if isValidUser() && isOwnerOfResource();
+    }
+    
+    // Follows collection - for user relationships
+    match /follows/{followId} {
+      allow read: if isValidUser();
+      allow create: if isValidUser() && 
+                    isOwnerOfRequest() &&
+                    request.resource.data.keys().hasAll(['followerId', 'followedId', 'createdAt']) &&
+                    request.resource.data.followerId != request.resource.data.followedId; // Can't follow yourself
+      allow delete: if isValidUser() && 
+                    (isOwner(resource.data.followerId) || isOwner(resource.data.followedId));
+    }
+    
+    // Notifications collection - users can only read their own notifications
+    match /notifications/{notificationId} {
+      allow read: if isValidUser() && isOwner(resource.data.userId);
+      allow create: if isValidUser() && 
+                    request.resource.data.keys().hasAll(['userId', 'type', 'message', 'createdAt', 'read']);
+      allow update: if isValidUser() && 
+                    isOwner(resource.data.userId) &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
+      allow delete: if isValidUser() && isOwner(resource.data.userId);
+    }
+    
+    // Analytics collection - write-only for tracking events
+    match /analytics/{analyticsId} {
+      allow create: if isValidUser() && 
+                    request.resource.data.keys().hasAll(['userId', 'event', 'timestamp', 'data']);
+      // No read access to analytics data for privacy
+    }
+    
+    // Reports collection - for content moderation
+    match /reports/{reportId} {
+      allow create: if isValidUser() && 
+                    request.resource.data.keys().hasAll(['reporterId', 'contentId', 'contentType', 'reason', 'createdAt']);
+      // Only admins can read reports (handled server-side)
+    }
+    
+    // Admin collection - restricted access
+    match /admin/{document=**} {
+      allow read, write: if false; // All admin operations handled server-side
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 
