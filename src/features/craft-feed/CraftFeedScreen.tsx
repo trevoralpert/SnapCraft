@@ -130,8 +130,6 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   const [currentStories, setCurrentStories] = useState<CraftStory[]>([]);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
 
-  const [demoMode, setDemoMode] = useState(true); // Default to demo mode for reliable MVP demo
-
   // Load posts from Firebase
   const loadPosts = async () => {
     try {
@@ -291,55 +289,17 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   };
 
   // Use demo data if demo mode is enabled or if there are Firebase errors
-  const displayPosts = demoMode || error ? MOCK_CRAFT_POSTS : posts;
+  const displayPosts = isDemoMode || error ? MOCK_CRAFT_POSTS : posts;
 
-  // Quick auth for demo
-  const handleQuickAuth = async () => {
-    try {
-      // Try to sign in with demo credentials, or create account if it doesn't exist
-      try {
-        await AuthService.signIn('demo@snapcraft.com', 'password123');
-        showSuccess('Signed in!', 'Authentication successful');
-      } catch (signInError) {
-        // If sign in fails, try to create the account
-        console.log('Sign in failed, creating demo account...');
-                 await AuthService.signUp(
-           'demo@snapcraft.com', 
-           'password123', 
-           'Demo Craftsperson',
-           ['woodworking', 'general'],
-           'apprentice'
-         );
-        showSuccess('Account created!', 'Demo account ready');
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-      showError('Auth failed', 'Could not authenticate');
-    }
-  };
-
-  // Debug Firebase initialization
+  // Debug Firebase initialization (development only)
   useEffect(() => {
-    const runFirebaseTest = async () => {
+    if (__DEV__) {
       console.log('🔍 Firebase Debug Info:');
       console.log('- isDemoMode:', isDemoMode);
       console.log('- auth:', !!auth);
       console.log('- db:', !!db);
       console.log('- storage:', !!storage);
-      console.log('- Environment check:', {
-        hasApiKey: !!process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-        hasProjectId: !!process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-        projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-        apiKeyFirst10: process.env.EXPO_PUBLIC_FIREBASE_API_KEY?.substring(0, 10),
-        messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      });
-      
-      // Run Firebase connection test
-      const connectionResult = await testFirebaseConnection();
-      console.log('🧪 Firebase connection test result:', connectionResult);
-    };
-    
-    runFirebaseTest();
+    }
   }, []);
 
   // Render craft post
@@ -456,83 +416,14 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* DEBUG INFO */}
-      <View style={styles.debugContainer}>
-        <Text style={styles.debugText}>
-          🔍 Debug: User = {user ? user.email : 'Not authenticated'}
-        </Text>
-        <Text style={styles.debugText}>
-          🔥 Firebase: {auth ? 'Initialized' : 'NOT INITIALIZED'} | Demo: {isDemoMode ? 'Yes' : 'No'}
-        </Text>
-        <Text style={styles.debugText}>
-          📊 Posts loaded: {displayPosts.length} {demoMode ? '(Demo Mode)' : '(Firebase)'}
-        </Text>
-        <Text style={styles.debugText}>
-          ⏳ Loading: {loading ? 'Yes' : 'No'}
-        </Text>
-        {error && (
-          <Text style={styles.errorText}>❌ Error: {error}</Text>
-        )}
-        
-        {/* Quick Auth Button - only show if Firebase is initialized */}
-        {!user && auth && (
-          <TouchableOpacity 
-            style={styles.authButton}
-            onPress={handleQuickAuth}
-          >
-            <Text style={styles.authButtonText}>
-              🔐 Quick Login (Demo)
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity 
-          style={[styles.toggleButton, { backgroundColor: demoMode ? '#8B4513' : '#D2691E' }]} 
-          onPress={() => setDemoMode(!demoMode)}
-        >
-          <Text style={styles.toggleButtonText}>
-            {demoMode ? '🔥 Switch to Firebase' : '🎭 Switch to Demo Mode'}
+      {/* Development Environment Indicator */}
+      {__DEV__ && error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>
+            ⚠️ Using cached content - {error}
           </Text>
-        </TouchableOpacity>
-        
-        {/* Add Firebase Auth Test Button */}
-        <TouchableOpacity 
-          style={[styles.toggleButton, { backgroundColor: '#228B22', marginTop: 8 }]} 
-          onPress={async () => {
-            console.log('🔥 BUTTON PRESSED - Firebase Test Starting...');
-            showInfo('Testing Firebase...', 'Check your terminal for logs');
-            
-            console.log('🧪 Manual Firebase Auth Test');
-            console.log('Current auth state:', {
-              auth: !!auth,
-              currentUser: auth?.currentUser,
-              userEmail: auth?.currentUser?.email,
-              userUid: auth?.currentUser?.uid,
-            });
-            
-            if (auth?.currentUser) {
-              console.log('✅ User is authenticated, testing Firestore access...');
-              try {
-                const testPosts = await getPosts(1);
-                console.log('✅ Firestore access successful:', testPosts.length);
-                showSuccess('Firebase Connected!', 'Authentication and Firestore working');
-                setDemoMode(false); // Switch to Firebase mode
-                loadPosts(); // Reload posts
-              } catch (error) {
-                console.error('❌ Firestore access failed:', error);
-                showError('Firebase Error', 'Check authentication or rules');
-              }
-            } else {
-              console.log('❌ No authenticated user found');
-              showError('Not Authenticated', 'Please sign in first');
-            }
-          }}
-        >
-          <Text style={styles.toggleButtonText}>
-            🧪 Test Firebase Connection
-          </Text>
-        </TouchableOpacity>
-      </View>
+        </View>
+      )}
 
       {/* Header */}
       <View style={styles.header}>
@@ -844,47 +735,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  debugContainer: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    margin: 10,
+  errorBanner: {
+    backgroundColor: '#FFF3CD',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
   },
-  debugText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#ff4444',
-    marginBottom: 2,
-  },
-  toggleButton: {
-    backgroundColor: '#8B4513',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 5,
-  },
-  toggleButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  authButton: {
-    backgroundColor: '#4CAF50',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 5,
-    marginBottom: 5,
-  },
-  authButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+  errorBannerText: {
+    fontSize: 14,
+    color: '#8B4513',
     textAlign: 'center',
   },
 }); 

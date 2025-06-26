@@ -3,10 +3,9 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { LogoutButton } from '@/src/shared/components/LogoutButton';
+import { useTheme } from '@/src/shared/contexts/ThemeContext';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -17,12 +16,17 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { theme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: theme.colors.tint,
+        tabBarInactiveTintColor: theme.colors.tabIconDefault,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
+        },
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
@@ -40,13 +44,13 @@ export default function TabLayout() {
                     <FontAwesome
                       name="plus-circle"
                       size={25}
-                      color={Colors[colorScheme ?? 'light'].text}
+                      color={theme.colors.text}
                       style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
                     />
                   )}
                 </Pressable>
               </Link>
-              <LogoutButton color={Colors[colorScheme ?? 'light'].text} />
+              <LogoutButton color={theme.colors.text} />
             </View>
           ),
         }}
@@ -57,7 +61,7 @@ export default function TabLayout() {
         options={{
           title: 'Tools',
           tabBarIcon: ({ color }) => <TabBarIcon name="wrench" color={color} />,
-          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
+          headerRight: () => <LogoutButton color={theme.colors.text} />,
         }}
       />
       <Tabs.Screen
@@ -65,7 +69,7 @@ export default function TabLayout() {
         options={{
           title: 'Camera',
           tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
-          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
+          headerRight: () => <LogoutButton color={theme.colors.text} />,
         }}
       />
       <Tabs.Screen
@@ -73,7 +77,7 @@ export default function TabLayout() {
         options={{
           title: 'Knowledge',
           tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} />,
-          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
+          headerRight: () => <LogoutButton color={theme.colors.text} />,
         }}
       />
       <Tabs.Screen
@@ -81,7 +85,23 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
-          headerRight: () => <LogoutButton color={Colors[colorScheme ?? 'light'].text} />,
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Link href="/settings" asChild>
+                <Pressable>
+                  {({ pressed }) => (
+                    <FontAwesome
+                      name="cog"
+                      size={25}
+                      color={theme.colors.text}
+                      style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
+                    />
+                  )}
+                </Pressable>
+              </Link>
+              <LogoutButton color={theme.colors.text} />
+            </View>
+          ),
         }}
       />
     </Tabs>

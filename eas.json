@@ -6,14 +6,52 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "channel": "development",
       "ios": {
+        "resourceClass": "m-medium",
+        "bundleIdentifier": "com.snapcraft.dev"
+      },
+      "android": {
+        "package": "com.snapcraft.dev"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "env": {
+        "NODE_ENV": "staging"
+      },
+      "channel": "staging",
+      "ios": {
+        "bundleIdentifier": "com.snapcraft.staging",
         "resourceClass": "m-medium"
+      },
+      "android": {
+        "package": "com.snapcraft.staging"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "NODE_ENV": "staging"
+      },
+      "channel": "preview"
     },
-    "production": {}
+    "production": {
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "channel": "production",
+      "ios": {
+        "bundleIdentifier": "com.snapcraft.app",
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "package": "com.snapcraft.app"
+      }
+    }
   },
   "submit": {
     "production": {}

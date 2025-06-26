@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -11,6 +11,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '../src/stores/authStore';
 import { NotificationSystem, useNotifications } from '../src/shared/components/NotificationSystem';
 import { LoginScreen } from '../src/features/auth/LoginScreen';
+import { ThemeProvider, useTheme } from '../src/shared/contexts/ThemeContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -74,11 +75,15 @@ export default function RootLayout() {
   }
 
   // Show main app if authenticated
-  return <RootLayoutNav />;
+  return (
+    <ThemeProvider>
+      <RootLayoutNav />
+    </ThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
   const {
     notifications,
     dismissNotification,
@@ -104,15 +109,16 @@ function RootLayoutNav() {
   }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
       </Stack>
       <NotificationSystem
         notifications={notifications}
         onDismiss={dismissNotification}
       />
-    </ThemeProvider>
+    </NavigationThemeProvider>
   );
 }

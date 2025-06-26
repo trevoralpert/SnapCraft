@@ -3,60 +3,45 @@ import { initializeAuth, getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import EnvironmentService from '../../shared/services/EnvironmentService';
 
-// Firebase configuration for Web SDK (compatible with Expo Go)
-const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-};
+// Get Firebase configuration from environment service
+const environmentService = EnvironmentService.getInstance();
+const firebaseConfig = environmentService.getFirebaseConfig();
 
-// Validate Firebase configuration
+// Validate Firebase configuration using environment service
 const validateFirebaseConfig = () => {
-  const requiredKeys = [
-    'EXPO_PUBLIC_FIREBASE_API_KEY',
-    'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
-    'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
-    'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
-    'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-    'EXPO_PUBLIC_FIREBASE_APP_ID',
-  ];
-
-  const missingKeys = requiredKeys.filter(key => !process.env[key]);
+  const validation = environmentService.validateConfiguration();
+  const envInfo = environmentService.getEnvironmentInfo();
   
-  if (missingKeys.length > 0) {
-    console.warn(
-      `Missing Firebase configuration: ${missingKeys.join(', ')}. ` +
-      'Please check your .env file and ensure all Firebase keys are set.'
-    );
-    return false;
-  }
-  
-  // Check for placeholder values
-  const hasPlaceholders = Object.values(firebaseConfig).some(value => 
-    typeof value === 'string' && (
-      value.includes('your-') || 
-      value.includes('demo-') ||
-      value === 'your_project_id' ||
-      value === 'your_api_key'
-    )
-  );
-  
-  if (hasPlaceholders) {
-    console.warn('🎭 Firebase config contains placeholder values - running in demo mode');
-    return false;
-  }
-  
-  // Log config for debugging (without sensitive values)
-  console.log('🔧 Firebase config validation:', {
+  console.log(`🔧 Firebase config validation for ${envInfo.environment}:`, {
+    isValid: validation.isValid,
+    environment: envInfo.environment,
     hasApiKey: !!firebaseConfig.apiKey,
     hasAuthDomain: !!firebaseConfig.authDomain,
     hasProjectId: !!firebaseConfig.projectId,
     projectId: firebaseConfig.projectId,
+    securityEnabled: envInfo.security.enableEncryption,
+    missingKeys: validation.missingKeys,
+    warnings: validation.warnings,
   });
+  
+  if (!validation.isValid) {
+    console.warn(
+      `❌ Firebase configuration invalid for ${envInfo.environment}: ` +
+      `Missing keys: ${validation.missingKeys.join(', ')}`
+    );
+    
+    if (envInfo.features.enableDemoMode) {
+      console.warn('🎭 Running in demo mode due to configuration issues');
+    }
+    
+    return false;
+  }
+  
+  if (validation.warnings.length > 0) {
+    console.warn('⚠️ Firebase configuration warnings:', validation.warnings);
+  }
   
   return true;
 };
