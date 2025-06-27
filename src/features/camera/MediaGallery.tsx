@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import VideoPlayer from './VideoPlayer';
 
@@ -25,6 +26,8 @@ interface MediaItem {
   filename: string;
   creationTime: number;
   duration?: number;
+  isAppSaved?: boolean; // Flag to indicate if this is from our app's Documents directory
+  documentsUri?: string; // URI in Documents directory for playback
 }
 
 interface MediaGalleryProps {
@@ -49,40 +52,158 @@ export default function MediaGallery({
     loadMedia();
   }, []);
 
+  const loadAppSavedVideos = async (): Promise<MediaItem[]> => {
+    try {
+      const documentsDir = FileSystem.documentDirectory;
+      if (!documentsDir) return [];
+
+      const files = await FileSystem.readDirectoryAsync(documentsDir);
+      const videoFiles = files.filter(file => 
+        file.toLowerCase().startsWith('craft_video_') && 
+        (file.toLowerCase().endsWith('.mov') || file.toLowerCase().endsWith('.mp4'))
+      );
+
+      console.log('🎥 Found app-saved videos:', videoFiles);
+
+      const appVideos: MediaItem[] = [];
+      
+      for (const file of videoFiles) {
+        try {
+          const fileUri = documentsDir + file;
+          const fileInfo = await FileSystem.getInfoAsync(fileUri);
+          
+          if (fileInfo.exists && !fileInfo.isDirectory) {
+            // Extract timestamp from filename (craft_video_TIMESTAMP.mov)
+            const timestampMatch = file.match(/craft_video_(\d+)\./);
+            const creationTime = timestampMatch ? parseInt(timestampMatch[1]) : Date.now();
+            
+            appVideos.push({
+              id: `app_${file}`, // Unique ID for app-saved videos
+              uri: fileUri,
+              mediaType: 'video',
+              filename: file,
+              creationTime,
+              isAppSaved: true,
+              documentsUri: fileUri, // Already in Documents directory
+            });
+          }
+        } catch (error) {
+          console.warn('🎥 Error processing app video file:', file, error);
+        }
+      }
+
+      return appVideos.sort((a, b) => b.creationTime - a.creationTime);
+    } catch (error) {
+      console.error('🎥 Error loading app-saved videos:', error);
+      return [];
+    }
+  };
+
+  const findDocumentsUriForVideo = async (mediaLibraryItem: MediaItem): Promise<string | null> => {
+    try {
+      // Try to find a corresponding file in Documents directory
+      // Look for files created around the same time (within 1 minute)
+      const documentsDir = FileSystem.documentDirectory;
+      if (!documentsDir) return null;
+
+      const files = await FileSystem.readDirectoryAsync(documentsDir);
+      const videoFiles = files.filter(file => 
+        file.toLowerCase().startsWith('craft_video_') && 
+        (file.toLowerCase().endsWith('.mov') || file.toLowerCase().endsWith('.mp4'))
+      );
+
+      for (const file of videoFiles) {
+        const timestampMatch = file.match(/craft_video_(\d+)\./);
+        if (timestampMatch) {
+          const fileTimestamp = parseInt(timestampMatch[1]);
+          const timeDiff = Math.abs(fileTimestamp - mediaLibraryItem.creationTime);
+          
+          // If created within 2 minutes of each other, likely the same video
+          if (timeDiff < 120000) { // 2 minutes in milliseconds
+            const documentsUri = `${documentsDir}${file}`;
+            const fileInfo = await FileSystem.getInfoAsync(documentsUri);
+            if (fileInfo.exists) {
+              console.log('🎥 Found Documents URI for media library video:', documentsUri);
+              return documentsUri;
+            }
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('🎥 Error finding Documents URI for video:', error);
+      return null;
+    }
+  };
+
   const loadMedia = async () => {
     try {
+      // Load app-saved videos first
+      const appVideos = await loadAppSavedVideos();
+      
       if (!permission?.granted) {
         const permissionResult = await requestPermission();
         if (!permissionResult.granted) {
-          const message = 'Media library access is required to view your craft documentation.';
-          if (typeof window !== 'undefined' && window.alert) {
-            window.alert(message);
-          } else {
-            Alert.alert('Permission Required', message);
-          }
+          // If no permission, just show app-saved videos
+          setMediaItems(appVideos);
+          setLoading(false);
           return;
         }
       }
 
-      // Get recent media assets
+      // Get recent media assets from Photos library
       const media = await MediaLibrary.getAssetsAsync({
         first: 100,
         mediaType: ['photo', 'video'],
         sortBy: 'creationTime',
       });
 
-      const mediaItems: MediaItem[] = media.assets
-        .filter(asset => asset.mediaType === 'photo' || asset.mediaType === 'video')
-        .map(asset => ({
-          id: asset.id,
-          uri: asset.uri,
-          mediaType: asset.mediaType as 'photo' | 'video',
-          filename: asset.filename,
-          creationTime: asset.creationTime,
-          duration: asset.duration,
-        }));
+      const mediaLibraryItems: MediaItem[] = [];
+      
+      for (const asset of media.assets) {
+        if (asset.mediaType === 'photo' || asset.mediaType === 'video') {
+          const mediaItem: MediaItem = {
+            id: asset.id,
+            uri: asset.uri,
+            mediaType: asset.mediaType as 'photo' | 'video',
+            filename: asset.filename,
+            creationTime: asset.creationTime,
+            duration: asset.duration,
+            isAppSaved: false,
+          };
 
-      setMediaItems(mediaItems);
+          // For videos, try to find corresponding Documents URI
+          if (asset.mediaType === 'video') {
+            const documentsUri = await findDocumentsUriForVideo(mediaItem);
+            if (documentsUri) {
+              mediaItem.documentsUri = documentsUri;
+            }
+          }
+
+          mediaLibraryItems.push(mediaItem);
+        }
+      }
+
+      // Combine app videos and media library items, removing duplicates
+      const allItems = [...appVideos];
+      
+      // Add media library items that aren't already represented by app videos
+      for (const mediaItem of mediaLibraryItems) {
+        const isDuplicate = appVideos.some(appVideo => {
+          const timeDiff = Math.abs(appVideo.creationTime - mediaItem.creationTime);
+          return timeDiff < 120000; // Within 2 minutes
+        });
+        
+        if (!isDuplicate) {
+          allItems.push(mediaItem);
+        }
+      }
+
+      // Sort by creation time (newest first)
+      allItems.sort((a, b) => b.creationTime - a.creationTime);
+      
+      setMediaItems(allItems);
     } catch (error) {
       console.error('Error loading media:', error);
       const message = 'Failed to load media gallery. Please try again.';
@@ -106,35 +227,75 @@ export default function MediaGallery({
       }
       setSelectedItems(newSelected);
     } else if (item.mediaType === 'video') {
-      // For videos, we need to get the actual file URI since MediaLibrary returns ph:// URIs
+      // For videos, use the best available URI for playback
       try {
-        console.log('🎥 Getting video info for playback:', item.uri);
-        const asset = await MediaLibrary.getAssetInfoAsync(item.id);
-        console.log('🎥 Asset info:', asset);
+        console.log('🎥 Opening video for playback:', item.filename);
         
-        // Get the best available URI and clean it
-        let videoUri = asset.localUri || asset.uri || item.uri;
+        let playbackUri = item.uri;
         
-        // Clean the URI by removing metadata parameters that cause permission issues
-        if (videoUri.includes('#')) {
-          videoUri = videoUri.split('#')[0];
-          console.log('🎥 MediaGallery: Cleaned URI (removed metadata):', videoUri);
+        // Prefer Documents URI if available (better permissions)
+        if (item.documentsUri) {
+          console.log('🎥 Using Documents URI for playback:', item.documentsUri);
+          playbackUri = item.documentsUri;
+        } else if (item.isAppSaved) {
+          console.log('🎥 Using app-saved URI for playback:', item.uri);
+          playbackUri = item.uri;
+        } else {
+          // For media library videos without Documents URI, try to get asset info
+          console.log('🎥 Getting media library asset info for:', item.id);
+          try {
+            const asset = await MediaLibrary.getAssetInfoAsync(item.id);
+            console.log('🎥 Asset info:', asset);
+            
+            // Use localUri if available, otherwise fall back to cleaned URI
+            if (asset.localUri) {
+              playbackUri = asset.localUri;
+              // Clean the URI by removing metadata parameters
+              if (playbackUri.includes('#')) {
+                playbackUri = playbackUri.split('#')[0];
+                console.log('🎥 Cleaned media library URI:', playbackUri);
+              }
+            }
+          } catch (assetError) {
+            console.warn('🎥 Could not get asset info, using original URI:', assetError);
+          }
         }
         
-        // Create a video item with the cleaned local URI
+        // Verify file exists before opening
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(playbackUri);
+          if (!fileInfo.exists) {
+            console.error('🎥 Video file does not exist:', playbackUri);
+            Alert.alert(
+              'Video Not Found',
+              'This video file is no longer available. It may have been moved or deleted.',
+              [{ text: 'OK', style: 'default' }]
+            );
+            return;
+          }
+          console.log('🎥 Video file verified:', {
+            uri: playbackUri,
+            size: (fileInfo as any).size,
+            exists: fileInfo.exists
+          });
+        } catch (verifyError) {
+          console.warn('🎥 Could not verify file, proceeding anyway:', verifyError);
+        }
+        
+        // Create video item with the best playback URI
         const videoItem = {
           ...item,
-          uri: videoUri
+          uri: playbackUri
         };
         
-        console.log('🎥 Opening video with cleaned URI:', videoItem.uri);
+        console.log('🎥 Opening video with URI:', videoItem.uri);
         setSelectedVideo(videoItem);
         setShowVideoPlayer(true);
       } catch (error) {
-        console.error('🎥 Error getting video asset info:', error);
+        console.error('🎥 Error preparing video for playback:', error);
         Alert.alert(
           'Video Playback Issue',
-          'This video may have restricted access. Try recording a new video or use a different video file.',
+          'Unable to play this video. Try recording a new video or check if the file still exists.',
           [{ text: 'OK', style: 'default' }]
         );
       }
