@@ -65,15 +65,48 @@ export interface CraftStory {
     videoUrl?: string;
     text?: string;
     backgroundColor?: string;
+    thumbnailUrl?: string; // Thumbnail for video stories
   };
   craftType?: CraftSpecialization;
   createdAt: Date;
   expiresAt: Date; // 24 hours from creation
-  views: {
-    userId: string;
-    viewedAt: Date;
-  }[];
+  views: StoryView[];
   isActive: boolean; // false if expired or manually deleted
+}
+
+export interface StoryView {
+  userId: string;
+  viewedAt: string; // ISO string
+  lastViewedAt?: string; // ISO string for replays
+  watchDuration: number; // seconds
+  completed: boolean;
+  replayed: boolean;
+  viewCount: number; // number of times this user viewed the story
+}
+
+export interface StoryAnalytics {
+  storyId: string;
+  totalViews: number;
+  uniqueViewers: number;
+  totalReplays: number;
+  completedViews: number;
+  completionRate: number; // percentage
+  averageWatchDuration: number; // seconds
+  views: StoryViewWithUser[];
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export interface StoryViewWithUser extends StoryView {
+  displayName: string;
+  avatar?: string;
+}
+
+export interface StoryViewersList {
+  storyId: string;
+  totalViewers: number;
+  totalViews: number;
+  viewers: StoryViewWithUser[];
 }
 
 export interface Tool {

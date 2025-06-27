@@ -17,7 +17,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CraftStory } from '../../shared/types';
 import { createStory } from '../../services/firebase/stories';
-import { uploadImage } from '../../services/firebase/storage';
+import { uploadImage, uploadVideo } from '../../services/firebase/storage';
+import { generateVideoThumbnail } from '../../services/firebase/thumbnails';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,6 +45,7 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [storyText, setStoryText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -77,19 +79,27 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
   const pickImageFromGallery = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
         aspect: [9, 16],
         quality: 0.8,
+        videoMaxDuration: 30, // 30 seconds max for stories
       });
 
       if (!result.canceled && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
-        setSelectedColor(null); // Clear color if image is selected
+        const asset = result.assets[0];
+        if (asset.type === 'image') {
+          setSelectedImage(asset.uri);
+          setSelectedVideo(null);
+        } else if (asset.type === 'video') {
+          setSelectedVideo(asset.uri);
+          setSelectedImage(null);
+        }
+        setSelectedColor(null); // Clear color when media is selected
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      console.error('Error picking media:', error);
+      Alert.alert('Error', 'Failed to pick media from gallery');
     }
   };
 
@@ -100,8 +110,8 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
   };
 
   const createNewStory = async () => {
-    if (!selectedImage && !selectedColor && !storyText.trim()) {
-      Alert.alert('Error', 'Please add an image, color, or text to your story');
+    if (!selectedImage && !selectedVideo && !selectedColor && !storyText.trim()) {
+      Alert.alert('Error', 'Please add an image, video, color, or text to your story');
       return;
     }
 
@@ -109,13 +119,34 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
 
     try {
       let imageUrl: string | undefined;
+      let videoUrl: string | undefined;
+      let thumbnailUrl: string | undefined;
 
-             // Upload image if selected
-       if (selectedImage) {
-         const imagePath = `craftStories/${currentUserId}/story_${Date.now()}/image.jpg`;
-         const uploadResult = await uploadImage(selectedImage, imagePath);
-         imageUrl = uploadResult.url;
-       }
+      // Upload image if selected
+      if (selectedImage) {
+        const imagePath = `craftStories/${currentUserId}/story_${Date.now()}/image.jpg`;
+        const uploadResult = await uploadImage(selectedImage, imagePath);
+        imageUrl = uploadResult.url;
+      }
+
+      // Upload video and generate thumbnail if selected
+      if (selectedVideo) {
+        const storyId = `story_${Date.now()}`;
+        const videoPath = `craftStories/${currentUserId}/${storyId}/video.mp4`;
+        
+        // Upload video
+        const videoUploadResult = await uploadVideo(selectedVideo, videoPath);
+        videoUrl = videoUploadResult.url;
+        
+        // Generate and upload thumbnail (optional - graceful fallback if not available)
+        try {
+          thumbnailUrl = await generateVideoThumbnail(selectedVideo, currentUserId, storyId);
+          console.log('✅ Video thumbnail generated successfully');
+        } catch (thumbnailError) {
+          console.warn('⚠️ Failed to generate thumbnail, story will continue without it:', thumbnailError);
+          // Story will still work, just without a thumbnail
+        }
+      }
 
       // Create story data
       const storyData: Omit<CraftStory, 'id' | 'createdAt' | 'expiresAt' | 'views' | 'isActive'> = {
@@ -127,6 +158,8 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
         },
         content: {
           ...(imageUrl && { imageUrl }),
+          ...(videoUrl && { videoUrl }),
+          ...(thumbnailUrl && { thumbnailUrl }),
           ...(storyText.trim() && { text: storyText.trim() }),
           ...(selectedColor && { backgroundColor: selectedColor }),
         },
@@ -165,6 +198,7 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
 
   const clearContent = () => {
     setSelectedImage(null);
+    setSelectedVideo(null);
     setSelectedColor(null);
     setStoryText('');
   };
@@ -188,6 +222,18 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
     if (selectedImage) {
       return (
         <Image source={{ uri: selectedImage }} style={styles.previewImage} resizeMode="cover" />
+      );
+    }
+
+    if (selectedVideo) {
+      return (
+        <View style={styles.videoPreviewContainer}>
+          <Image source={{ uri: selectedVideo }} style={styles.previewImage} resizeMode="cover" />
+          <View style={styles.videoIndicator}>
+            <Ionicons name="play-circle" size={50} color="white" />
+            <Text style={styles.videoIndicatorText}>Video Story</Text>
+          </View>
+        </View>
       );
     }
 
@@ -579,5 +625,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
+  },
+  videoPreviewContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  videoIndicator: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -50 }, { translateY: -50 }],
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderRadius: 15,
+  },
+  videoIndicatorText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 8,
   },
 }); 

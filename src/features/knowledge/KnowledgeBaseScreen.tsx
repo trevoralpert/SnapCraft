@@ -98,7 +98,11 @@ const MOCK_ARTICLES = [
   },
 ];
 
-export default function KnowledgeBaseScreen() {
+interface KnowledgeBaseScreenProps {
+  onBack?: () => void;
+}
+
+export default function KnowledgeBaseScreen({ onBack }: KnowledgeBaseScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'rating'>('popular');
@@ -206,7 +210,14 @@ export default function KnowledgeBaseScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📚 Knowledge Base</Text>
+        <View style={styles.headerLeft}>
+          {onBack && (
+            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+              <Ionicons name="arrow-back" size={24} color="#8B4513" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerTitle}>📚 Knowledge Base</Text>
+        </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
             style={styles.aiButton}
@@ -340,6 +351,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 24,

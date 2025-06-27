@@ -51,14 +51,18 @@ service cloud.firestore {
     
     // Stories collection - ephemeral content, 24-hour TTL
     match /craftStories/{storyId} {
-      allow read: if isValidUser(); // Simplified for testing - all authenticated users can read active stories
+      allow read: if isValidUser(); // All authenticated users can read active stories
       allow create: if isValidUser() && 
                     isOwnerOfRequest() &&
                     request.resource.data.userId is string &&
                     request.resource.data.author is map &&
                     request.resource.data.content is map;
+      // Allow story owner to update any field OR any authenticated user to update only the 'views' field
       allow update: if isValidUser() && 
-                    isOwnerOfResource();
+                    (isOwnerOfResource() || 
+                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+                      request.resource.data.userId == resource.data.userId && // Prevent userId changes
+                      request.resource.data.views is list)); // Ensure views is still a list
       allow delete: if isValidUser() && isOwnerOfResource();
     }
     

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
 import { CraftStory } from '../../shared/types';
 import { markStoryAsViewed } from '../../services/firebase/stories';
 
@@ -39,16 +40,62 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Engagement tracking
+  const [watchStartTime, setWatchStartTime] = useState<Date | null>(null);
+  const [watchDurations, setWatchDurations] = useState<Map<string, number>>(new Map());
+  const [completedStories, setCompletedStories] = useState<Set<string>>(new Set());
 
   const currentStory = stories[currentIndex];
 
-  // Mark story as viewed when it starts
+  // Track engagement metrics
+  const trackEngagement = (storyId: string, completed: boolean = false, replayed: boolean = false) => {
+    if (!watchStartTime) return;
+    
+    const watchDuration = Math.floor((new Date().getTime() - watchStartTime.getTime()) / 1000);
+    const existingDuration = watchDurations.get(storyId) || 0;
+    const totalDuration = existingDuration + watchDuration;
+    
+    setWatchDurations(prev => new Map(prev.set(storyId, totalDuration)));
+    
+    if (completed) {
+      setCompletedStories(prev => new Set(prev.add(storyId)));
+    }
+    
+    return { watchDuration: totalDuration, completed, replayed };
+  };
+
+  // Mark story as viewed when it starts with engagement tracking
   useEffect(() => {
     if (currentStory && currentUserId !== currentStory.userId) {
-      markStoryAsViewed(currentStory.id, currentUserId).catch(err => {
-        console.error('Failed to mark story as viewed:', err);
-      });
+      setWatchStartTime(new Date());
+      
+      // Check if this is a replay
+      const isReplay = watchDurations.has(currentStory.id);
+      
+      const safeMarkAsViewed = async () => {
+        try {
+          const engagementData = isReplay 
+            ? { replayed: true, watchDuration: watchDurations.get(currentStory.id) || 0 }
+            : undefined;
+            
+          await markStoryAsViewed(currentStory.id, currentUserId, engagementData);
+          console.log('✅ Story view tracking succeeded', isReplay ? '(replay)' : '(first view)');
+        } catch (error) {
+          console.warn('⚠️ Story view tracking failed (this is expected until Firestore rules are updated):', error);
+          // Do nothing - just silently fail
+        }
+      };
+      
+      safeMarkAsViewed();
     }
+    
+    // Cleanup function to track engagement when leaving story
+    return () => {
+      if (currentStory && currentUserId !== currentStory.userId && watchStartTime) {
+        trackEngagement(currentStory.id);
+      }
+    };
   }, [currentStory, currentUserId]);
 
   // Progress animation
@@ -73,6 +120,18 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   }, [currentIndex, isPaused]);
 
   const nextStory = () => {
+    // Track completion of current story
+    if (currentStory && currentUserId !== currentStory.userId) {
+      const engagementData = trackEngagement(currentStory.id, true); // Mark as completed
+      
+      // Update story view with completion data
+      if (engagementData) {
+        markStoryAsViewed(currentStory.id, currentUserId, engagementData).catch(err => {
+          console.warn('Failed to update story completion:', err);
+        });
+      }
+    }
+    
     if (currentIndex < stories.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setProgress(0);
@@ -150,7 +209,18 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
     return (
       <View style={styles.storyContentContainer}>
-        {currentStory.content.imageUrl && (
+        {currentStory.content.videoUrl && (
+          <Video
+            source={{ uri: currentStory.content.videoUrl }}
+            style={styles.storyVideo}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay={!isPaused}
+            isLooping={false}
+            isMuted={false}
+          />
+        )}
+        
+        {currentStory.content.imageUrl && !currentStory.content.videoUrl && (
           <Image
             source={{ uri: currentStory.content.imageUrl }}
             style={styles.storyImage}
@@ -164,7 +234,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </View>
         )}
         
-        {currentStory.content.backgroundColor && !currentStory.content.imageUrl && (
+        {currentStory.content.backgroundColor && !currentStory.content.imageUrl && !currentStory.content.videoUrl && (
           <View style={[styles.colorBackground, { backgroundColor: currentStory.content.backgroundColor }]} />
         )}
       </View>
@@ -252,6 +322,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   storyImage: {
+    width: width,
+    height: height,
+    position: 'absolute',
+  },
+  storyVideo: {
     width: width,
     height: height,
     position: 'absolute',

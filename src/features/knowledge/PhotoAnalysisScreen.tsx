@@ -26,7 +26,11 @@ interface AnalysisResult {
   timestamp: Date;
 }
 
-export default function PhotoAnalysisScreen() {
+interface PhotoAnalysisScreenProps {
+  onBack?: () => void;
+}
+
+export default function PhotoAnalysisScreen({ onBack }: PhotoAnalysisScreenProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -196,8 +200,17 @@ export default function PhotoAnalysisScreen() {
         <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name="camera" size={32} color="#8B4513" />
-            <Text style={styles.title}>Smart Photo Analysis</Text>
+            <View style={styles.headerTop}>
+              {onBack && (
+                <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                  <Ionicons name="arrow-back" size={24} color="#8B4513" />
+                </TouchableOpacity>
+              )}
+              <View style={styles.headerContent}>
+                <Ionicons name="camera" size={32} color="#8B4513" />
+                <Text style={styles.title}>Smart Photo Analysis</Text>
+              </View>
+            </View>
             <Text style={styles.subtitle}>
               AI-powered visual analysis of your craft projects
             </Text>
@@ -384,6 +397,20 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 16,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,

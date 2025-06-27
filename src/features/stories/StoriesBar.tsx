@@ -13,6 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CraftStory } from '../../shared/types';
 import { getActiveStories } from '../../services/firebase/stories';
+import { getStoryThumbnail } from '../../services/firebase/thumbnails';
+import { StoryViewCount } from '../../shared/components/StoryViewCount';
+import { StoryViewersModal } from '../../shared/components/StoryViewersModal';
 
 const { width } = Dimensions.get('window');
 const STORY_SIZE = 70;
@@ -31,9 +34,11 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
   const [stories, setStories] = useState<CraftStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewersModalVisible, setViewersModalVisible] = useState(false);
+  const [selectedStoryForViewers, setSelectedStoryForViewers] = useState<CraftStory | null>(null);
 
-  // Group stories by user (latest story per user)
-  const groupedStories = React.useMemo(() => {
+  // Group stories by user (latest story per user) and separate current user's story
+  const { currentUserStory, otherUsersStories } = React.useMemo(() => {
     const userStoriesMap = new Map<string, CraftStory>();
     
     stories.forEach(story => {
@@ -43,9 +48,14 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
       }
     });
     
-    return Array.from(userStoriesMap.values())
+    const allGroupedStories = Array.from(userStoriesMap.values())
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }, [stories]);
+    
+    const currentUserStory = allGroupedStories.find(story => story.userId === currentUserId);
+    const otherUsersStories = allGroupedStories.filter(story => story.userId !== currentUserId);
+    
+    return { currentUserStory, otherUsersStories };
+  }, [stories, currentUserId]);
 
   const loadStories = async () => {
     try {
@@ -119,6 +129,15 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     return story.views.some(view => view.userId === currentUserId);
   };
 
+  const getTotalViews = (story: CraftStory): number => {
+    return story.views.reduce((sum, view) => sum + (view.viewCount || 1), 0);
+  };
+
+  const handleViewCountPress = (story: CraftStory) => {
+    setSelectedStoryForViewers(story);
+    setViewersModalVisible(true);
+  };
+
   const renderStoryItem = (story: CraftStory, index: number) => {
     const isViewed = hasUserViewed(story);
     
@@ -136,11 +155,23 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
           end={{ x: 1, y: 1 }}
         >
           <View style={styles.storyInner}>
-            {story.author.avatar ? (
+            {getStoryThumbnail(story) ? (
+              <Image source={{ uri: getStoryThumbnail(story)! }} style={styles.storyImage} />
+            ) : story.content.videoUrl ? (
+              // For video stories without thumbnails, show a video placeholder
+              <View style={[styles.storyImage, styles.videoPlaceholder]}>
+                <Ionicons name="videocam" size={30} color="#8B4513" />
+              </View>
+            ) : story.author.avatar ? (
               <Image source={{ uri: story.author.avatar }} style={styles.storyImage} />
             ) : (
               <View style={[styles.storyImage, styles.placeholderAvatar]}>
                 <Ionicons name="person" size={30} color="#8B4513" />
+              </View>
+            )}
+            {story.content.videoUrl && (
+              <View style={styles.videoIndicator}>
+                <Ionicons name="play-circle" size={16} color="white" />
               </View>
             )}
           </View>
@@ -148,27 +179,104 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
         <Text style={styles.storyUsername} numberOfLines={1}>
           {story.author.displayName}
         </Text>
+        {getTotalViews(story) > 0 && (
+          <StoryViewCount
+            viewCount={getTotalViews(story)}
+            size="small"
+            color="#666"
+            onPress={() => handleViewCountPress(story)}
+          />
+        )}
       </TouchableOpacity>
     );
   };
 
-  const renderCreateStoryButton = () => (
-    <TouchableOpacity
-      style={styles.storyContainer}
-      onPress={onCreateStoryPress}
-      activeOpacity={0.8}
-    >
-      <View style={styles.createStoryContainer}>
-        <View style={styles.createStoryButton}>
-          <Ionicons name="add" size={30} color="#8B4513" />
-        </View>
-        <View style={styles.createStoryPlus}>
-          <Ionicons name="add-circle" size={20} color="#8B4513" />
-        </View>
+  const renderCreateStoryButton = () => {
+    const hasCurrentUserStory = !!currentUserStory;
+    
+    return (
+      <View style={styles.storyContainer}>
+        {hasCurrentUserStory ? (
+          // Show user's story with add button
+          <>
+            <View style={styles.userStoryContainer}>
+              <TouchableOpacity
+                onPress={() => handleStoryPress(currentUserStory!)}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#4CAF50', '#8BC34A']} // Green gradient for user's own story
+                  style={styles.storyGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.storyInner}>
+                    {getStoryThumbnail(currentUserStory) ? (
+                      <Image source={{ uri: getStoryThumbnail(currentUserStory)! }} style={styles.storyImage} />
+                    ) : currentUserStory.content.videoUrl ? (
+                      <View style={[styles.storyImage, styles.videoPlaceholder]}>
+                        <Ionicons name="videocam" size={30} color="#8B4513" />
+                      </View>
+                    ) : currentUserStory.content.imageUrl ? (
+                      <Image source={{ uri: currentUserStory.content.imageUrl }} style={styles.storyImage} />
+                    ) : (
+                      <View style={[styles.storyImage, styles.placeholderAvatar]}>
+                        <Ionicons name="person" size={30} color="#8B4513" />
+                      </View>
+                    )}
+                    {currentUserStory.content.videoUrl && (
+                      <View style={styles.videoIndicator}>
+                        <Ionicons name="play-circle" size={16} color="white" />
+                      </View>
+                    )}
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+              
+              {/* Add Story Button */}
+              <TouchableOpacity 
+                style={styles.addStoryButton}
+                onPress={onCreateStoryPress}
+                activeOpacity={0.8}
+              >
+                <View style={styles.addStoryButtonInner}>
+                  <Ionicons name="add" size={16} color="white" />
+                </View>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.storyUsername} numberOfLines={1}>
+              Your Story
+            </Text>
+            {getTotalViews(currentUserStory) > 0 && (
+              <StoryViewCount
+                viewCount={getTotalViews(currentUserStory)}
+                size="small"
+                color="#666"
+                onPress={() => handleViewCountPress(currentUserStory)}
+              />
+            )}
+          </>
+        ) : (
+          // Show create story button
+          <TouchableOpacity
+            onPress={onCreateStoryPress}
+            activeOpacity={0.8}
+          >
+            <View style={styles.createStoryContainer}>
+              <View style={styles.createStoryButton}>
+                <Ionicons name="add" size={30} color="#8B4513" />
+              </View>
+              <View style={styles.createStoryPlus}>
+                <Ionicons name="add-circle" size={20} color="#8B4513" />
+              </View>
+            </View>
+            <Text style={styles.storyUsername}>Your Story</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <Text style={styles.storyUsername}>Your Story</Text>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -189,7 +297,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
         style={styles.scrollView}
       >
         {renderCreateStoryButton()}
-        {groupedStories.map((story, index) => renderStoryItem(story, index))}
+        {otherUsersStories.map((story, index) => renderStoryItem(story, index))}
       </ScrollView>
       
       {error && (
@@ -197,6 +305,15 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
           <Text style={styles.errorText}>📱 Demo mode - showing sample stories</Text>
         </View>
       )}
+
+      {/* Story Viewers Modal */}
+      <StoryViewersModal
+        visible={viewersModalVisible}
+        onClose={() => setViewersModalVisible(false)}
+        storyId={selectedStoryForViewers?.id || ''}
+        storyOwnerId={selectedStoryForViewers?.userId || ''}
+        currentUserId={currentUserId}
+      />
     </View>
   );
 };
@@ -247,6 +364,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  videoPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+  },
+  videoIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 8,
+    padding: 2,
+  },
   storyUsername: {
     fontSize: 12,
     color: '#333',
@@ -278,6 +408,32 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#F5F5DC',
     borderRadius: 10,
+  },
+  userStoryContainer: {
+    position: 'relative',
+    width: STORY_SIZE + 6,
+    height: STORY_SIZE + 6,
+  },
+  addStoryButton: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    zIndex: 10,
+  },
+  addStoryButtonInner: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F5F5DC',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   loadingContainer: {
     padding: 20,

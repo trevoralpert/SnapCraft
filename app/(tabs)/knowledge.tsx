@@ -10,15 +10,15 @@ export default function KnowledgeTab() {
   const [currentView, setCurrentView] = useState<KnowledgeView>('hub');
 
   if (currentView === 'assistant') {
-    return <SmartCraftAssistant />;
+    return <SmartCraftAssistant onBack={() => setCurrentView('hub')} />;
   }
 
   if (currentView === 'knowledgeBase') {
-    return <KnowledgeBaseScreen />;
+    return <KnowledgeBaseScreen onBack={() => setCurrentView('hub')} />;
   }
 
   if (currentView === 'photoAnalysis') {
-    return <PhotoAnalysisScreen />;
+    return <PhotoAnalysisScreen onBack={() => setCurrentView('hub')} />;
   }
 
   // Knowledge Hub - Main navigation

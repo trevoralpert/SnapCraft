@@ -46,7 +46,11 @@ const MOCK_TOOL_INVENTORY: ToolInventoryItem[] = [
   { id: 'clamp_001', name: 'Bar Clamps (4)', category: 'general', owned: true },
 ];
 
-export default function SmartCraftAssistant() {
+interface SmartCraftAssistantProps {
+  onBack?: () => void;
+}
+
+export default function SmartCraftAssistant({ onBack }: SmartCraftAssistantProps) {
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState<EnhancedRAGResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -123,8 +127,17 @@ Please consider my available tools when providing recommendations.`;
         <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name="construct" size={32} color="#8B4513" />
-            <Text style={styles.title}>Smart Craft Assistant</Text>
+            <View style={styles.headerTop}>
+              {onBack && (
+                <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                  <Ionicons name="arrow-back" size={24} color="#8B4513" />
+                </TouchableOpacity>
+              )}
+              <View style={styles.headerContent}>
+                <Ionicons name="construct" size={32} color="#8B4513" />
+                <Text style={styles.title}>Smart Craft Assistant</Text>
+              </View>
+            </View>
             <Text style={styles.subtitle}>
               AI-powered guidance for all crafts with your tool inventory
             </Text>
@@ -299,6 +312,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 16,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,

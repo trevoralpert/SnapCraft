@@ -93,6 +93,81 @@ export const uploadImage = async (
 };
 
 /**
+ * Upload a video to Firebase Storage
+ * @param uri - Local video URI
+ * @param path - Storage path (e.g., 'stories/user123/video1.mp4')
+ * @param onProgress - Progress callback
+ * @returns Promise with download URL and metadata
+ */
+export const uploadVideo = async (
+  uri: string,
+  path: string,
+  onProgress?: (progress: UploadProgress) => void
+): Promise<UploadResult> => {
+  if (!storage) {
+    throw new Error('Firebase Storage not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    // Fetch the video as a blob
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video: ${response.statusText}`);
+    }
+    
+    const blob = await response.blob();
+    
+    // Create storage reference
+    const storageRef = ref(storage, path);
+    
+    // Upload with progress tracking
+    const uploadTask = uploadBytesResumable(storageRef, blob);
+    
+    return new Promise((resolve, reject) => {
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          // Progress callback
+          const progress = {
+            bytesTransferred: snapshot.bytesTransferred,
+            totalBytes: snapshot.totalBytes,
+            progress: (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+          };
+          onProgress?.(progress);
+        },
+        (error) => {
+          // Error callback
+          console.error('Video upload failed:', error);
+          reject(new Error(`Video upload failed: ${error.message}`));
+        },
+        async () => {
+          // Success callback
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            const metadata = uploadTask.snapshot.metadata;
+            
+            resolve({
+              url: downloadURL,
+              path: path,
+              metadata: {
+                size: metadata.size,
+                contentType: metadata.contentType || 'video/mp4',
+                timeCreated: metadata.timeCreated,
+              },
+            });
+          } catch (error) {
+            reject(new Error(`Failed to get download URL: ${error}`));
+          }
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Video upload error:', error);
+    throw new Error(`Video upload failed: ${error}`);
+  }
+};
+
+/**
  * Upload multiple images
  * @param uris - Array of local image URIs
  * @param basePath - Base storage path (e.g., 'posts/user123/')
