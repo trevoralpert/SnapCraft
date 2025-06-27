@@ -267,7 +267,7 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
         author: {
           id: user.id,
           displayName: user.displayName || 'Anonymous Craftsman',
-          avatar: '🔨', // Default avatar - could be enhanced with user avatar
+          // Only include avatar if user has one
         },
         content: {
           description: description.trim(),

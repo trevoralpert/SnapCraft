@@ -35,24 +35,34 @@ export default function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<Video>(null);
   
+  // Clean the video URI by removing metadata parameters that cause permission issues
+  const cleanVideoUri = React.useMemo(() => {
+    if (videoUri.includes('#')) {
+      const cleaned = videoUri.split('#')[0];
+      console.log('🎥 VideoPlayer: Cleaned URI (removed metadata):', cleaned);
+      return cleaned;
+    }
+    return videoUri;
+  }, [videoUri]);
+  
   // For mock videos, we'll show a placeholder
-  const isMockVideo = videoUri.startsWith('mock://');
+  const isMockVideo = cleanVideoUri.startsWith('mock://');
 
   // Verify file exists when component mounts
   useEffect(() => {
     const verifyVideoFile = async () => {
-      if (!isMockVideo && videoUri) {
+      if (!isMockVideo && cleanVideoUri) {
         try {
-          const fileInfo = await FileSystem.getInfoAsync(videoUri);
+          const fileInfo = await FileSystem.getInfoAsync(cleanVideoUri);
           console.log('🎥 Video file verification:', {
-            uri: videoUri,
+            uri: cleanVideoUri,
             exists: fileInfo.exists,
             size: fileInfo.exists ? (fileInfo as any).size : 'N/A',
             isDirectory: fileInfo.exists ? fileInfo.isDirectory : 'N/A'
           });
           
           if (!fileInfo.exists) {
-            console.error('🎥 Video file does not exist at URI:', videoUri);
+            console.error('🎥 Video file does not exist at URI:', cleanVideoUri);
             Alert.alert('Video Error', 'Video file not found');
           }
         } catch (error) {
@@ -62,7 +72,7 @@ export default function VideoPlayer({
     };
     
     verifyVideoFile();
-  }, [videoUri, isMockVideo]);
+  }, [cleanVideoUri, isMockVideo]);
 
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     console.log('🎥 Playback status update:', status);
@@ -80,7 +90,7 @@ export default function VideoPlayer({
       setIsLoaded(false);
       if (status.error) {
         console.error('🎥 Video playback error:', status.error);
-        console.log('🎥 Video URI that failed:', videoUri);
+        console.log('🎥 Video URI that failed:', cleanVideoUri);
         // Don't show alert for now, let's see if native controls work
       }
     }
@@ -197,7 +207,7 @@ export default function VideoPlayer({
             <Video
               ref={videoRef}
               style={styles.video}
-              source={{ uri: videoUri }}
+              source={{ uri: cleanVideoUri }}
               useNativeControls={true}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay={false}

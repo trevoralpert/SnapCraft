@@ -19,9 +19,12 @@ export const generateVideoThumbnail = async (
     let VideoThumbnails;
     try {
       VideoThumbnails = require('expo-video-thumbnails');
+      if (!VideoThumbnails || !VideoThumbnails.getThumbnailAsync) {
+        throw new Error('VideoThumbnails module not properly loaded');
+      }
     } catch (requireError) {
-      console.warn('🎬 expo-video-thumbnails not available in this build, skipping thumbnail generation');
-      throw new Error('Video thumbnails not available in current build');
+      console.warn('🎬 expo-video-thumbnails requires development build, skipping thumbnail generation');
+      throw new Error('Video thumbnails require development build (not available in Expo Go)');
     }
     
     // Generate thumbnail at 1 second mark

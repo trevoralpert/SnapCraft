@@ -112,20 +112,31 @@ export default function MediaGallery({
         const asset = await MediaLibrary.getAssetInfoAsync(item.id);
         console.log('🎥 Asset info:', asset);
         
-        // Create a video item with the local URI
+        // Get the best available URI and clean it
+        let videoUri = asset.localUri || asset.uri || item.uri;
+        
+        // Clean the URI by removing metadata parameters that cause permission issues
+        if (videoUri.includes('#')) {
+          videoUri = videoUri.split('#')[0];
+          console.log('🎥 MediaGallery: Cleaned URI (removed metadata):', videoUri);
+        }
+        
+        // Create a video item with the cleaned local URI
         const videoItem = {
           ...item,
-          uri: asset.localUri || asset.uri || item.uri
+          uri: videoUri
         };
         
-        console.log('🎥 Opening video with URI:', videoItem.uri);
+        console.log('🎥 Opening video with cleaned URI:', videoItem.uri);
         setSelectedVideo(videoItem);
         setShowVideoPlayer(true);
       } catch (error) {
         console.error('🎥 Error getting video asset info:', error);
-        // Fallback to original URI
-        setSelectedVideo(item);
-        setShowVideoPlayer(true);
+        Alert.alert(
+          'Video Playback Issue',
+          'This video may have restricted access. Try recording a new video or use a different video file.',
+          [{ text: 'OK', style: 'default' }]
+        );
       }
     } else {
       // For photos, use the existing callback

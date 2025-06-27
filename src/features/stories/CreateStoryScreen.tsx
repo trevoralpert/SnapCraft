@@ -10,10 +10,12 @@ import {
   TextInput,
   Alert,
   Image,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { CraftStory } from '../../shared/types';
 import { createStory } from '../../services/firebase/stories';
@@ -43,6 +45,7 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
   onStoryCreated,
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
@@ -52,29 +55,136 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   
+  // Video recording state
+  const [mode, setMode] = useState<'photo' | 'video'>('photo');
+
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
     if (!permission) {
       requestPermission();
     }
-  }, [permission, requestPermission]);
+    if (!microphonePermission) {
+      requestMicrophonePermission();
+    }
+  }, [permission, requestPermission, microphonePermission, requestMicrophonePermission]);
 
   const takePicture = async () => {
-    if (cameraRef.current) {
-      try {
-        const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
-          base64: false,
-        });
-        setSelectedImage(photo.uri);
-        setSelectedColor(null); // Clear color if image is selected
-      } catch (error) {
-        console.error('Error taking picture:', error);
-        Alert.alert('Error', 'Failed to take picture');
-      }
+    if (!cameraRef.current) return;
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+      });
+
+      setSelectedImage(photo.uri);
+      setSelectedVideo(null);
+      setSelectedColor(null);
+    } catch (error) {
+      console.error('Error taking picture:', error);
+      Alert.alert('Error', 'Failed to take picture');
     }
   };
+
+  const recordVideoWithNativeCamera = async () => {
+    try {
+      // Request permissions first
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera access is required to record videos');
+        return;
+      }
+
+      console.log('🎬 Opening native camera for video recording...');
+      
+      // Launch native camera for video recording
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos, // Note: MediaTypeOptions deprecated but still functional
+        allowsEditing: true,
+        quality: 0.8,
+        videoMaxDuration: 30, // 30 second limit for stories
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const videoUri = result.assets[0].uri;
+        console.log('✅ Video recorded successfully:', videoUri);
+        
+        setSelectedVideo(videoUri);
+        setSelectedImage(null);
+        setSelectedColor(null);
+        
+        Alert.alert(
+          '🎥 Video Ready!', 
+          'Your video has been recorded and is ready to share!',
+          [{ text: 'Great!', style: 'default' }]
+        );
+      } else {
+        console.log('📱 Video recording cancelled by user');
+      }
+    } catch (error) {
+      console.error('❌ Error recording video with native camera:', error);
+      Alert.alert('Error', 'Failed to record video. Please try again.');
+    }
+  };
+
+  const selectVideoFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Media library access is required to select videos');
+        return;
+      }
+
+      console.log('📱 Opening gallery for video selection...');
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos, // Note: MediaTypeOptions deprecated but still functional
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const videoUri = result.assets[0].uri;
+        console.log('✅ Video selected from gallery:', videoUri);
+        
+        setSelectedVideo(videoUri);
+        setSelectedImage(null);
+        setSelectedColor(null);
+        
+        Alert.alert(
+          '🎥 Video Selected!', 
+          'Your video is ready to share!',
+          [{ text: 'Great!', style: 'default' }]
+        );
+      } else {
+        console.log('📱 Video selection cancelled by user');
+      }
+    } catch (error) {
+      console.error('❌ Error selecting video from gallery:', error);
+      Alert.alert('Error', 'Failed to select video. Please try again.');
+    }
+  };
+
+  const showVideoOptions = () => {
+    Alert.alert(
+      'Add Video to Story',
+      'How would you like to add a video?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: '📹 Record Video', 
+          onPress: recordVideoWithNativeCamera 
+        },
+        { 
+          text: '📱 Choose from Gallery', 
+          onPress: selectVideoFromGallery 
+        },
+      ]
+    );
+  };
+
+
 
   const pickImageFromGallery = async () => {
     try {
@@ -110,6 +220,22 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
   };
 
   const createNewStory = async () => {
+    console.log('🎬 Creating story with media:', {
+      hasImage: !!selectedImage,
+      hasVideo: !!selectedVideo,
+      hasColor: !!selectedColor,
+      hasText: !!storyText.trim(),
+      imageUri: selectedImage,
+      videoUri: selectedVideo,
+    });
+    
+    console.log('📊 Current state values:', {
+      selectedImage,
+      selectedVideo,
+      selectedColor,
+      storyText: storyText.trim(),
+    });
+
     if (!selectedImage && !selectedVideo && !selectedColor && !storyText.trim()) {
       Alert.alert('Error', 'Please add an image, video, color, or text to your story');
       return;
@@ -154,7 +280,7 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
         author: {
           id: currentUserId,
           displayName: currentUserName,
-          avatar: currentUserAvatar || '🔨', // Default avatar if none provided
+          ...(currentUserAvatar && { avatar: currentUserAvatar }), // Only include avatar if it exists
         },
         content: {
           ...(imageUrl && { imageUrl }),
@@ -201,16 +327,23 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
     setSelectedVideo(null);
     setSelectedColor(null);
     setStoryText('');
+    setMode('photo');
   };
 
-  if (!permission) {
+  if (!permission || !microphonePermission) {
     return <View style={styles.container} />;
   }
 
-  if (!permission.granted) {
+  if (!permission.granted || !microphonePermission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={styles.permissionText}>Camera access is required to create stories</Text>
+        <Text style={styles.permissionText}>Camera and microphone access is required for video recording</Text>
+        <TouchableOpacity style={styles.permissionButton} onPress={() => {
+          if (!permission.granted) requestPermission();
+          if (!microphonePermission.granted) requestMicrophonePermission();
+        }}>
+          <Text style={styles.permissionButtonText}>Grant Permissions</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.permissionButton} onPress={pickImageFromGallery}>
           <Text style={styles.permissionButtonText}>Choose from Gallery</Text>
         </TouchableOpacity>
@@ -242,9 +375,13 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
     }
 
     return (
-      <CameraView style={styles.camera} facing={cameraFacing} ref={cameraRef}>
-        <View style={styles.cameraOverlay} />
-      </CameraView>
+      <View style={styles.cameraContainer}>
+        <CameraView 
+          style={styles.camera} 
+          facing={cameraFacing} 
+          ref={cameraRef}
+        />
+      </View>
     );
   };
 
@@ -262,6 +399,66 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
       </View>
     </View>
   );
+
+  const renderCaptureArea = () => {
+    if (selectedImage || selectedVideo || selectedColor) {
+      return (
+        <View style={styles.captureControls}>
+          <TouchableOpacity style={styles.clearButton} onPress={clearContent}>
+            <Ionicons name="refresh" size={24} color="white" />
+            <Text style={styles.clearButtonText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.captureControls}>
+        {/* Mode Toggle */}
+        <View style={styles.modeToggle}>
+          <TouchableOpacity
+            style={[styles.modeButton, mode === 'photo' && styles.modeButtonActive]}
+            onPress={() => setMode('photo')}
+          >
+            <Text style={[styles.modeButtonText, mode === 'photo' && styles.modeButtonTextActive]}>
+              Photo
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, mode === 'video' && styles.modeButtonActive]}
+            onPress={() => setMode('video')}
+          >
+            <Text style={[styles.modeButtonText, mode === 'video' && styles.modeButtonTextActive]}>
+              Video
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Capture Button */}
+        <View style={styles.captureButtonContainer}>
+          {mode === 'photo' ? (
+            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+              <View style={styles.captureButtonInner} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.videoCaptureButton} onPress={showVideoOptions}>
+              <Ionicons name="videocam" size={32} color="white" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Mode Status */}
+        <Text style={styles.modeStatus}>
+          {mode === 'photo' ? 'Photo Mode' : 'Video Mode'}
+        </Text>
+
+        {/* Camera Flip Button */}
+        <TouchableOpacity style={styles.flipButton} onPress={flipCamera}>
+          <Ionicons name="camera-reverse" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -290,12 +487,12 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
           </TouchableOpacity>
           
           <View style={styles.topRightControls}>
-            {selectedImage && (
+            {(selectedImage || selectedVideo) && (
               <TouchableOpacity onPress={clearContent} style={styles.topButton}>
                 <Ionicons name="refresh" size={24} color="white" />
               </TouchableOpacity>
             )}
-            {!selectedImage && !selectedColor && (
+            {!selectedImage && !selectedVideo && !selectedColor && (
               <TouchableOpacity onPress={flipCamera} style={styles.topButton}>
                 <Ionicons name="camera-reverse" size={24} color="white" />
               </TouchableOpacity>
@@ -378,10 +575,8 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
 
           {/* Capture/Create Button */}
           <View style={styles.captureRow}>
-            {!selectedImage && !selectedColor ? (
-              <TouchableOpacity onPress={takePicture} style={styles.captureButton}>
-                <View style={styles.captureButtonInner} />
-              </TouchableOpacity>
+            {!selectedImage && !selectedVideo && !selectedColor ? (
+              renderCaptureArea()
             ) : (
               <TouchableOpacity
                 onPress={createNewStory}
@@ -406,6 +601,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
   },
   previewContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  cameraContainer: {
     flex: 1,
     position: 'relative',
   },
@@ -646,5 +845,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginTop: 8,
+  },
+
+  captureControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  clearButton: {
+    padding: 10,
+  },
+  clearButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  modeButton: {
+    padding: 10,
+  },
+  modeButtonActive: {
+    backgroundColor: '#8B4513',
+  },
+  modeButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  modeButtonTextActive: {
+    fontWeight: '600',
+  },
+  captureButtonContainer: {
+    marginRight: 20,
+  },
+  videoCaptureButton: {
+    padding: 10,
+  },
+  modeStatus: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  flipButton: {
+    padding: 10,
   },
 }); 
