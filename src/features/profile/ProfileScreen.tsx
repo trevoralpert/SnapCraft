@@ -308,6 +308,70 @@ export function ProfileScreen() {
           </View>
         )}
 
+        {/* AI Scoring Test Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🧠 AI Scoring</Text>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity 
+                onPress={() => {
+                  // Navigate to scoring history - for now just show alert
+                  if (typeof window !== 'undefined' && window.alert) {
+                    window.alert('📊 Scoring History feature coming soon! This will show your project scores, skill progression, and AI feedback history.');
+                  } else {
+                    Alert.alert('📊 Scoring History', 'Feature coming soon! This will show your project scores, skill progression, and AI feedback history.');
+                  }
+                }} 
+                style={styles.historyButton}
+              >
+                <Text style={styles.historyButtonText}>History</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={async () => {
+                  try {
+                    console.log('🧪 Starting AI Scoring Test...');
+                    
+                    // Import the test function dynamically
+                    const { testProjectScoring } = await import('../../services/scoring/test-scoring');
+                    
+                    // Show loading alert
+                    if (typeof window !== 'undefined' && window.alert) {
+                      window.alert('🧪 Running AI Scoring Test... Check console for detailed results!');
+                    } else {
+                      Alert.alert('🧪 AI Scoring Test', 'Running test... Check console for detailed results!');
+                    }
+                    
+                    // Run the test
+                    await testProjectScoring();
+                    
+                    // Show success
+                    if (typeof window !== 'undefined' && window.alert) {
+                      window.alert('✅ AI Scoring Test completed! Check console for full results.');
+                    } else {
+                      Alert.alert('✅ Test Complete', 'AI Scoring Test completed! Check console for full results.');
+                    }
+                    
+                  } catch (error) {
+                    console.error('❌ AI Scoring Test failed:', error);
+                    if (typeof window !== 'undefined' && window.alert) {
+                      window.alert('❌ Test failed: ' + (error as Error).message);
+                    } else {
+                      Alert.alert('❌ Test Failed', (error as Error).message);
+                    }
+                  }
+                }} 
+                style={styles.testButton}
+              >
+                <Text style={styles.testButtonText}>Test</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <Text style={styles.testDescription}>
+            🎯 Test the new AI project scoring system with a sample woodworking project. 
+            Results will appear in the console with detailed scoring breakdown.
+          </Text>
+        </View>
+
         {/* Achievements Preview */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -621,5 +685,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     flex: 1,
+  },
+  testButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#4CAF50',
+    borderRadius: 6,
+  },
+  testButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  testDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  historyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#2196F3',
+    borderRadius: 6,
+  },
+  historyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 

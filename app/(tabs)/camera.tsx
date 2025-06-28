@@ -11,16 +11,29 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams } from 'expo-router';
+import { VisionMode } from '@/src/shared/types/vision';
 import { CameraScreen, MediaGallery, VideoPlayer } from '@/src/features/camera';
 
 export default function CameraTab() {
   const navigation = useNavigation();
+  const searchParams = useLocalSearchParams();
   const [showCamera, setShowCamera] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedVideoUri, setSelectedVideoUri] = useState<string>('');
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
   const [intentionallyClosed, setIntentionallyClosed] = useState(false);
+  const [initialVisionMode, setInitialVisionMode] = useState<VisionMode | undefined>();
+
+  // Handle URL parameters for vision mode
+  useEffect(() => {
+    if (searchParams.visionMode && typeof searchParams.visionMode === 'string') {
+      console.log('🔍 Camera opened with vision mode:', searchParams.visionMode);
+      setInitialVisionMode(searchParams.visionMode as VisionMode);
+      setShowCamera(true); // Ensure camera opens when vision mode is specified
+    }
+  }, [searchParams.visionMode]);
 
   // Auto-open camera when tab is focused (Snapchat-style)
   useFocusEffect(
@@ -222,6 +235,7 @@ export default function CameraTab() {
           onPhotoTaken={handlePhotoTaken}
           onVideoRecorded={handleVideoRecorded}
           onClose={handleCameraClose}
+          initialVisionMode={initialVisionMode}
         />
       </Modal>
 

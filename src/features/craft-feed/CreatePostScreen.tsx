@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   SafeAreaView,
   Alert,
   Image,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,6 +18,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { uploadMultipleImages, generatePostImagePath } from '../../services/firebase/storage';
 import { createPost } from '../../services/firebase/posts';
 import { CraftPost } from '../../shared/types';
+import { ProjectScoringService } from '../../services/scoring/ProjectScoringService';
+import { AchievementService } from '../../services/achievements/AchievementService';
 
 // Craft types for selection
 const CRAFT_TYPES = [
@@ -43,9 +47,22 @@ const DIFFICULTY_LEVELS = [
 interface CreatePostScreenProps {
   onPostCreated?: (post: any) => void;
   onCancel?: () => void;
+  prePopulatedMedia?: {
+    uri: string;
+    type: 'photo' | 'video';
+  } | null;
 }
 
-export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePostScreenProps) {
+export default function CreatePostScreen({ onPostCreated, onCancel, prePopulatedMedia }: CreatePostScreenProps) {
+  console.log('🎨 CreatePostScreen STARTED with props:', {
+    hasOnPostCreated: !!onPostCreated,
+    hasOnCancel: !!onCancel,
+    prePopulatedMedia: prePopulatedMedia ? {
+      type: prePopulatedMedia.type,
+      hasUri: !!prePopulatedMedia.uri
+    } : null
+  });
+
   const { user } = useAuthStore();
   const [description, setDescription] = useState('');
   const [selectedCraftType, setSelectedCraftType] = useState<string>('');
@@ -58,6 +75,15 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+
+  // Handle pre-populated media from camera
+  useEffect(() => {
+    if (prePopulatedMedia && prePopulatedMedia.type === 'photo') {
+      console.log('📸 Pre-populating with photo:', prePopulatedMedia.uri);
+      setSelectedImages([prePopulatedMedia.uri]);
+    }
+    // TODO: Handle video pre-population when video support is added to posts
+  }, [prePopulatedMedia]);
 
   // Add/remove material fields
   const addMaterial = () => {
@@ -295,6 +321,89 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
 
       console.log('✅ Craft post created successfully:', postId);
       
+      // 🧠 AI PROJECT SCORING INTEGRATION
+      try {
+        console.log('🧠 Starting AI project scoring...');
+        const scoringService = ProjectScoringService.getInstance();
+        
+        // Prepare scoring request data
+        const scoringRequest = {
+          projectId: postId,
+          userId: user.id,
+          craftType: selectedCraftType as any, // Convert to CraftSpecialization
+          description: description.trim(),
+          materials: materials.filter(m => m.trim()),
+          techniques: techniques.filter(t => t.trim()),
+          timeSpent: parseTimeToMinutes(timeSpent),
+          difficulty: selectedDifficulty,
+          images: imageUrls,
+          tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        };
+        
+        // Score the project
+        const scoringResult = await scoringService.scoreProject(scoringRequest);
+        
+        console.log('🎯 Project scoring completed:', {
+          score: scoringResult.individualSkillScore,
+          skillLevel: scoringResult.skillLevelCategory,
+          confidence: scoringResult.aiScoringMetadata.confidence,
+          needsReview: scoringResult.aiScoringMetadata.needsHumanReview
+        });
+        
+        // 🏆 CHECK FOR ACHIEVEMENT UNLOCKS
+        try {
+          const achievementService = AchievementService.getInstance();
+          
+          // Mock data for achievement checking (in real app, get from user profile)
+          const achievementData = {
+            score: scoringResult.individualSkillScore,
+            skillLevel: scoringResult.skillLevelCategory,
+            craftType: selectedCraftType,
+            totalProjects: 1, // This would come from user's actual project count
+            recentScores: [scoringResult.individualSkillScore], // This would be user's recent scores
+            existingAchievements: [] // This would be user's existing achievements
+          };
+          
+          const newAchievements = achievementService.checkScoreBasedAchievements(achievementData);
+          
+          if (newAchievements.length > 0) {
+            console.log('🏆 New achievements unlocked:', newAchievements.length);
+            
+            // Show achievement notifications
+            for (const achievement of newAchievements) {
+              achievementService.showAchievementNotification(achievement);
+            }
+          }
+        } catch (achievementError) {
+          console.warn('⚠️ Achievement checking failed:', achievementError);
+        }
+        
+        // Enhanced success message with score
+        const successMessage = `🎉 Project Shared & Scored!\n\n` +
+          `📊 Your ${selectedCraftType} project scored ${scoringResult.individualSkillScore}/100\n` +
+          `🏆 Skill Level: ${scoringResult.skillLevelCategory.charAt(0).toUpperCase() + scoringResult.skillLevelCategory.slice(1)}\n` +
+          `🎯 Confidence: ${Math.round(scoringResult.aiScoringMetadata.confidence)}%\n\n` +
+          `Your project is now live in the community feed!`;
+          
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(successMessage);
+        } else {
+          Alert.alert('Success!', successMessage);
+        }
+        
+      } catch (scoringError) {
+        console.warn('⚠️ AI scoring failed, but post was created successfully:', scoringError);
+        
+        // Fallback success message if scoring fails
+        const message = `Your ${selectedCraftType} project has been shared with the community! 🎉\n\n` +
+          `(AI scoring will be processed in the background)`;
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(message);
+        } else {
+          Alert.alert('Post Created!', message);
+        }
+      }
+      
       // Reset form
       setDescription('');
       setSelectedCraftType('');
@@ -309,14 +418,6 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
       // Call success callback
       if (onPostCreated) {
         onPostCreated({ id: postId, ...postData });
-      }
-
-      // Show success message
-      const message = `Your ${selectedCraftType} project has been shared with the community! 🎉`;
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert(message);
-      } else {
-        Alert.alert('Post Created!', message);
       }
 
     } catch (error) {
@@ -336,7 +437,7 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { minHeight: '100%', backgroundColor: '#F5F5DC' }]}>
         <View style={styles.authRequiredContainer}>
           <Text style={styles.authRequiredTitle}>Authentication Required</Text>
           <Text style={styles.authRequiredText}>
@@ -346,14 +447,28 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
             <Text style={styles.authButtonText}>Go to Login</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
+  console.log('🎨 CreatePostScreen rendering with:', {
+    hasUser: !!user,
+    hasPrePopulatedMedia: !!prePopulatedMedia,
+    selectedImagesCount: selectedImages.length,
+    isSubmitting
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { minHeight: '100%', backgroundColor: '#F5F5DC' }]}>
+      
+      {/* DEBUG BANNER - Remove after testing */}
+      <View style={{ backgroundColor: 'red', padding: 20, alignItems: 'center', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>🔧 DEBUG: CreatePostScreen Loaded Successfully!</Text>
+        <Text style={{ color: 'white', fontSize: 14 }}>Photo Count: {selectedImages.length}</Text>
+      </View>
+      
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { marginTop: 80 }]}>
         <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
           <Ionicons name="close" size={24} color="#8B4513" />
         </TouchableOpacity>
@@ -391,7 +506,12 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
 
         {/* Images */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Project Photos</Text>
+          <Text style={styles.sectionTitle}>
+            Project Photos
+            {prePopulatedMedia && prePopulatedMedia.type === 'photo' && (
+              <Text style={styles.cameraIndicator}> 📸 From Camera</Text>
+            )}
+          </Text>
           <View style={styles.imagesContainer}>
             {selectedImages.map((image, index) => (
               <View key={index} style={styles.imageContainer}>
@@ -571,7 +691,7 @@ export default function CreatePostScreen({ onPostCreated, onCancel }: CreatePost
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -857,5 +977,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  cameraIndicator: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 5,
   },
 }); 

@@ -18,6 +18,14 @@ export interface User {
   joinedAt: Date;
   location?: string;
   bio?: string;
+  // Project Scoring Calculated Fields
+  scoring?: {
+    averageProjectScore: number; // 0-100 average of all project scores
+    calculatedSkillLevel: SkillLevel; // AI-calculated skill level based on projects
+    projectCount: number; // Total number of scored projects
+    skillProgression: SkillProgressionEntry[]; // Historical skill level changes
+    lastScoreUpdate: Date; // When skill calculations were last updated
+  };
 }
 
 export interface CraftPost {
@@ -50,6 +58,26 @@ export interface CraftPost {
   };
   isEphemeral: boolean;
   expiresAt?: Date;
+  // Project Scoring Fields
+  scoring?: {
+    individualSkillScore: number; // 0-100 overall project score
+    skillLevelCategory: SkillLevel; // AI-determined skill level for this project
+    scoringCriteria: {
+      technicalExecution: number; // 0-100 (40% weight)
+      documentationCompleteness: number; // 0-100 (30% weight)
+      toolUsageAppropriateness: number; // 0-100 (15% weight)
+      safetyAdherence: number; // 0-100 (10% weight)
+      innovationCreativity: number; // 0-100 (5% weight)
+    };
+    documentationCompleteness: number; // 0-100 percentage
+    aiScoringMetadata: {
+      confidence: number; // 0-1 AI confidence in scoring
+      modelVersion: string; // AI model version used
+      scoredAt: Date; // When scoring was performed
+      reviewRequired: boolean; // Whether human review is needed
+      reviewReason?: string; // Reason for human review flag
+    };
+  };
 }
 
 export interface CraftStory {
@@ -138,6 +166,147 @@ export interface Achievement {
   icon: string;
   unlockedAt: Date;
   rarity: 'common' | 'rare' | 'legendary';
+}
+
+export interface SkillProgressionEntry {
+  skillLevel: SkillLevel;
+  averageScore: number; // 0-100 score that triggered this level
+  achievedAt: Date;
+  projectCount: number; // Number of projects at time of level change
+  triggerProjectId?: string; // ID of project that triggered the level change
+}
+
+// Project Scoring Types
+export interface ProjectScoringRequest {
+  projectId: string;
+  userId: string;
+  craftType: CraftSpecialization;
+  imageUrls?: string[];
+  description: string;
+  materials?: string[];
+  toolsUsed?: string[];
+  timeSpent?: number;
+  userSkillLevel?: SkillLevel;
+  userProfile?: {
+    bio?: string;
+    craftSpecialization?: CraftSpecialization[];
+  };
+}
+
+export interface ProjectScoringResult {
+  scoringId: string;
+  projectId: string;
+  individualSkillScore: number;
+  skillLevelCategory: SkillLevel;
+  scoringCriteria: {
+    technicalExecution: {
+      score: number;
+      weight: number;
+      feedback: string;
+      confidence: number;
+    };
+    documentationCompleteness: {
+      score: number;
+      weight: number;
+      feedback: string;
+      confidence: number;
+    };
+    toolUsageAppropriateness: {
+      score: number;
+      weight: number;
+      feedback: string;
+      confidence: number;
+    };
+    safetyAdherence: {
+      score: number;
+      weight: number;
+      feedback: string;
+      confidence: number;
+    };
+    innovationCreativity: {
+      score: number;
+      weight: number;
+      feedback: string;
+      confidence: number;
+    };
+  };
+  overallFeedback: string;
+  strengths: string[];
+  improvementAreas: string[];
+  nextStepSuggestions: string[];
+  aiScoringMetadata: {
+    modelVersion: string;
+    confidence: number;
+    processingTime: number;
+    timestamp: string;
+    needsHumanReview: boolean;
+    reviewReason?: string;
+    craftTypeSpecific: {
+      craftType: CraftSpecialization;
+      evaluationFocus: string[];
+      commonChallenges: string[];
+    };
+    documentationAnalysis: {
+      hasBeforePhotos: boolean;
+      hasProcessPhotos: boolean;
+      hasAfterPhotos: boolean;
+      hasDescription: boolean;
+      hasMaterialsList: boolean;
+      hasToolsList: boolean;
+      hasTimeTracking: boolean;
+      hasChallengesNoted: boolean;
+    };
+  };
+}
+
+// Legacy types for backward compatibility
+export interface ProjectScoringRequestLegacy {
+  postId: string;
+  userId: string;
+  craftType: CraftSpecialization;
+  images: string[];
+  description: string;
+  materials: string[];
+  techniques: string[];
+  timeSpent: number;
+  difficulty: DifficultyLevel;
+}
+
+export interface ProjectScoringResultLegacy {
+  postId: string;
+  scoring: {
+    individualSkillScore: number;
+    skillLevelCategory: SkillLevel;
+    scoringCriteria: {
+      technicalExecution: number;
+      documentationCompleteness: number;
+      toolUsageAppropriateness: number;
+      safetyAdherence: number;
+      innovationCreativity: number;
+    };
+    documentationCompleteness: number;
+    aiScoringMetadata: {
+      confidence: number;
+      modelVersion: string;
+      scoredAt: Date;
+      reviewRequired: boolean;
+      reviewReason?: string;
+    };
+  };
+  feedback?: {
+    strengths: string[];
+    improvementAreas: string[];
+    nextSteps: string[];
+    skillSpecificTips: string[];
+  };
+}
+
+export interface SkillLevelThresholds {
+  novice: { min: 0; max: 20 };
+  apprentice: { min: 21; max: 40 };
+  journeyman: { min: 41; max: 60 };
+  craftsman: { min: 61; max: 80 };
+  master: { min: 81; max: 100 };
 }
 
 // Enums

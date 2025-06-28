@@ -11,93 +11,48 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { VisionMode } from '../../shared/types/vision';
+import { Tool } from '../../shared/types';
 import { useAuthStore } from '../../stores/authStore';
+import { AuthService } from '../../services/firebase/auth';
 
 // Tool categories with emojis
 const TOOL_CATEGORIES = [
-  { id: 'woodworking', label: 'Woodworking', emoji: '🪵' },
-  { id: 'metalworking', label: 'Metalworking', emoji: '🔧' },
+  { id: 'hand-tools', label: 'Hand Tools', emoji: '🔨' },
+  { id: 'power-tools', label: 'Power Tools', emoji: '⚡' },
   { id: 'measuring', label: 'Measuring', emoji: '📏' },
-  { id: 'cutting', label: 'Cutting', emoji: '✂️' },
-  { id: 'shaping', label: 'Shaping', emoji: '🔨' },
-  { id: 'finishing', label: 'Finishing', emoji: '🎨' },
   { id: 'safety', label: 'Safety', emoji: '🥽' },
-  { id: 'other', label: 'Other', emoji: '🛠️' },
+  { id: 'finishing', label: 'Finishing', emoji: '🎨' },
+  { id: 'specialized', label: 'Specialized', emoji: '🛠️' },
 ];
 
 // Tool conditions
 const TOOL_CONDITIONS = [
   { id: 'excellent', label: 'Excellent', color: '#4CAF50' },
   { id: 'good', label: 'Good', color: '#8BC34A' },
-  { id: 'fair', label: 'Fair', color: '#FF9800' },
-  { id: 'poor', label: 'Poor', color: '#F44336' },
-  { id: 'needs_repair', label: 'Needs Repair', color: '#9C27B0' },
+  { id: 'fair', label: 'Fair', color: '#FFC107' },
+  { id: 'needs-repair', label: 'Needs Repair', color: '#FF5722' },
 ];
 
-// Mock tool data
-const MOCK_TOOLS = [
-  {
-    id: '1',
-    name: 'Circular Saw',
-    category: 'cutting',
-    brand: 'DeWalt',
-    model: 'DWE575',
-    condition: 'excellent',
-    purchaseDate: '2023-03-15',
-    purchasePrice: 179.99,
-    location: 'Workshop - Main Bench',
-    notes: 'Primary saw for rough cuts. Blade recently sharpened.',
-    lastUsed: '2024-06-20',
-    maintenanceReminders: ['Blade sharpening due in 3 months'],
-  },
-  {
-    id: '2',
-    name: 'Chisels Set',
-    category: 'woodworking',
-    brand: 'Narex',
-    model: '6-piece set',
-    condition: 'good',
-    purchaseDate: '2022-11-20',
-    purchasePrice: 89.50,
-    location: 'Tool Cabinet - Drawer 2',
-    notes: '6mm, 12mm, 18mm, 25mm chisels. Handle on 18mm slightly loose.',
-    lastUsed: '2024-06-22',
-    maintenanceReminders: ['Handle tightening needed'],
-  },
-  {
-    id: '3',
-    name: 'Digital Caliper',
-    category: 'measuring',
-    brand: 'Mitutoyo',
-    model: 'CD-6" CSX',
-    condition: 'excellent',
-    purchaseDate: '2023-01-10',
-    purchasePrice: 45.99,
-    location: 'Tool Cabinet - Top Drawer',
-    notes: 'Precision measuring for fine work. Battery recently replaced.',
-    lastUsed: '2024-06-23',
-    maintenanceReminders: [],
-  },
-  {
-    id: '4',
-    name: 'Angle Grinder',
-    category: 'metalworking',
-    brand: 'Bosch',
-    model: 'GWS13-50VS',
-    condition: 'fair',
-    purchaseDate: '2021-08-05',
-    purchasePrice: 129.99,
-    location: 'Workshop - Metal Station',
-    notes: 'Heavy use tool. Brushes need replacement soon.',
-    lastUsed: '2024-06-18',
-    maintenanceReminders: ['Carbon brush replacement due', 'Deep cleaning needed'],
-  },
-];
+// Tool interface for type safety - extends the shared Tool interface
+interface ToolInventoryItem extends Tool {
+  // Additional fields for tool inventory screen compatibility
+  model?: string;
+  purchaseDate?: string;
+  purchasePrice?: number;
+  location?: string;
+  lastUsed?: string;
+  maintenanceReminders?: string[];
+}
+
+// Tools will be populated from user's Firebase document and camera tool identification
 
 interface AddToolModalProps {
   visible: boolean;
   onClose: () => void;
-  onAddTool: (tool: any) => void;
+  onAddTool: (tool: Tool) => void;
 }
 
 function AddToolModal({ visible, onClose, onAddTool }: AddToolModalProps) {
@@ -132,18 +87,20 @@ function AddToolModal({ visible, onClose, onAddTool }: AddToolModalProps) {
       return;
     }
 
-    const newTool = {
+    const currentDate = new Date().toISOString().split('T')[0] || new Date().toISOString().substring(0, 10);
+    
+    const newTool: Tool = {
       id: Date.now().toString(),
       name: toolName.trim(),
       category: selectedCategory,
       brand: brand.trim(),
       model: model.trim(),
       condition: selectedCondition,
-      purchaseDate: new Date().toISOString().split('T')[0],
+      purchaseDate: currentDate,
       purchasePrice: purchasePrice ? parseFloat(purchasePrice) : 0,
       location: location.trim(),
       notes: notes.trim(),
-      lastUsed: new Date().toISOString().split('T')[0],
+      lastUsed: currentDate,
       maintenanceReminders: [],
     };
 
@@ -273,15 +230,15 @@ function AddToolModal({ visible, onClose, onAddTool }: AddToolModalProps) {
 
 export default function ToolInventoryScreen() {
   const { user } = useAuthStore();
-  const [tools, setTools] = useState(MOCK_TOOLS);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'lastUsed'>('name');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-  const handleAddTool = (newTool: any) => {
-    setTools(prevTools => [...prevTools, newTool]);
+  const handleAddTool = (newTool: Tool) => {
+    setTools((prevTools: Tool[]) => [...prevTools, newTool]);
   };
 
   const getConditionColor = (condition: string): string => {
@@ -300,14 +257,14 @@ export default function ToolInventoryScreen() {
 
   // Filter and sort tools
   const filteredTools = tools
-    .filter(tool => {
+    .filter((tool: Tool) => {
       const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           tool.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           tool.model.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory;
       return matchesSearch && matchesCategory;
     })
-    .sort((a, b) => {
+    .sort((a: Tool, b: Tool) => {
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
@@ -320,7 +277,7 @@ export default function ToolInventoryScreen() {
       }
     });
 
-  const renderToolItem = ({ item }: { item: typeof MOCK_TOOLS[0] }) => (
+  const renderToolItem = ({ item }: { item: Tool }) => (
     <View style={styles.toolCard}>
       <View style={styles.toolHeader}>
         <View style={styles.toolInfo}>
@@ -369,6 +326,25 @@ export default function ToolInventoryScreen() {
         </View>
       )}
     </View>
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchTools = async () => {
+        if (user) {
+          try {
+            const userData = await AuthService.getUserData(user.id);
+            if (userData && userData.toolInventory) {
+              setTools(userData.toolInventory);
+            }
+          } catch (error) {
+            console.error('Error fetching tools:', error);
+          }
+        }
+      };
+
+      fetchTools();
+    }, [user])
   );
 
   if (!user) {
@@ -503,10 +479,63 @@ export default function ToolInventoryScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No tools found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery ? 'Try adjusting your search' : 'Add your first tool to get started'}
-            </Text>
+            {searchQuery ? (
+              // Search results empty state
+              <>
+                <Ionicons name="search" size={48} color="#8B4513" style={styles.emptyIcon} />
+                <Text style={styles.emptyText}>No tools found</Text>
+                <Text style={styles.emptySubtext}>
+                  Try adjusting your search or add a new tool
+                </Text>
+              </>
+            ) : (
+              // Initial empty state - no tools at all
+              <>
+                <Ionicons name="construct" size={64} color="#8B4513" style={styles.emptyIcon} />
+                <Text style={styles.emptyText}>Build Your Tool Inventory</Text>
+                <Text style={styles.emptySubtext}>
+                  Start documenting your craft tools to track your workshop and get personalized project recommendations.
+                </Text>
+                
+                <View style={styles.getStartedContainer}>
+                  <Text style={styles.getStartedTitle}>🚀 Get Started</Text>
+                  
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => router.push(`/camera?visionMode=${VisionMode.IDENTIFY_TOOLS}`)}
+                  >
+                    <Ionicons name="camera" size={20} color="white" style={styles.buttonIcon} />
+                    <Text style={styles.primaryButtonText}>Identify Tools with Camera</Text>
+                  </TouchableOpacity>
+                  
+                  <Text style={styles.orText}>or</Text>
+                  
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => setShowAddModal(true)}
+                  >
+                    <Ionicons name="add" size={20} color="#8B4513" style={styles.buttonIcon} />
+                    <Text style={styles.secondaryButtonText}>Add Tool Manually</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.benefitsContainer}>
+                  <Text style={styles.benefitsTitle}>Why track your tools?</Text>
+                  <View style={styles.benefitItem}>
+                    <Text style={styles.benefitEmoji}>🎯</Text>
+                    <Text style={styles.benefitText}>Get project recommendations based on what you own</Text>
+                  </View>
+                  <View style={styles.benefitItem}>
+                    <Text style={styles.benefitEmoji}>📊</Text>
+                    <Text style={styles.benefitText}>Track tool usage and maintenance schedules</Text>
+                  </View>
+                  <View style={styles.benefitItem}>
+                    <Text style={styles.benefitEmoji}>🤝</Text>
+                    <Text style={styles.benefitText}>Share and discover tools with the community</Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         }
       />
@@ -756,6 +785,77 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  emptyIcon: {
+    marginBottom: 15,
+  },
+  getStartedContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  getStartedTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 15,
+  },
+  primaryButton: {
+    backgroundColor: '#8B4513',
+    padding: 12,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  buttonIcon: {
+    marginRight: 10,
+  },
+  orText: {
+    fontSize: 14,
+    color: '#666',
+    marginHorizontal: 10,
+  },
+  secondaryButton: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#8B4513',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    color: '#8B4513',
+    fontWeight: '600',
+  },
+  benefitsContainer: {
+    alignItems: 'center',
+  },
+  benefitsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 10,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  benefitEmoji: {
+    fontSize: 16,
+    marginRight: 5,
+  },
+  benefitText: {
+    fontSize: 14,
+    color: '#666',
   },
   authRequiredContainer: {
     flex: 1,

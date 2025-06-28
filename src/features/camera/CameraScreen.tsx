@@ -8,6 +8,9 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
+  Modal,
+  Image,
+  TextInput,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions, FlashMode } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,6 +25,12 @@ import { getDefaultVisionMode, getVisionModeConfig } from '@/src/shared/constant
 import EnvironmentService from '@/src/shared/services/EnvironmentService';
 import VisionDropdownSelector from './VisionDropdownSelector';
 import VisionToggleButton from './VisionToggleButton';
+import { ToolIdentificationService, ToolConfirmationData } from '@/src/services/toolIdentification';
+import ToolConfirmationModal from '../tools/ToolConfirmationModal';
+import { useAuthStore } from '@/src/stores/authStore';
+import { uploadMultipleImages, generatePostImagePath } from '../../services/firebase/storage';
+import { createPost } from '../../services/firebase/posts';
+import { CraftPost } from '../../shared/types';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -43,6 +52,7 @@ export default function CameraScreen({
   // Theme and navigation
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAuthStore();
   
   // Environment service for feature flags
   const envService = EnvironmentService.getInstance();
@@ -67,8 +77,23 @@ export default function CameraScreen({
   );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
+  // Tool identification state
+  const [showToolConfirmation, setShowToolConfirmation] = useState(false);
+  const [toolConfirmations, setToolConfirmations] = useState<ToolConfirmationData[]>([]);
+  const [lastPhotoUri, setLastPhotoUri] = useState<string>('');
+  
+  // Photo preview state
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+  const [previewPhotoUri, setPreviewPhotoUri] = useState<string>('');
+  const [previewVideoUri, setPreviewVideoUri] = useState<string>('');
+  
   // Camera ref
   const cameraRef = useRef<CameraView>(null);
+
+  // Add this state at the top of the component
+  const [showTestOverlay, setShowTestOverlay] = useState(false);
+  const [captionText, setCaptionText] = useState('');
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   // Request permissions on mount and check available codecs
   useEffect(() => {
@@ -202,7 +227,16 @@ export default function CameraScreen({
         }
         
         console.log('Photo taken:', photo.uri);
-        onPhotoTaken?.(photo.uri);
+        setLastPhotoUri(photo.uri);
+        
+        // Handle tool identification if in identify tools mode
+        if (isVisionMode && currentVisionMode === VisionMode.IDENTIFY_TOOLS) {
+          await handleToolIdentification(photo.uri);
+        } else {
+          // Show photo preview for seamless post creation
+          setPreviewPhotoUri(photo.uri);
+          setShowPhotoPreview(true);
+        }
       }
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -215,6 +249,222 @@ export default function CameraScreen({
     } finally {
       setIsCapturing(false);
     }
+  };
+
+  // Handle tool identification process
+  const handleToolIdentification = async (photoUri: string) => {
+    try {
+      console.log('🔍 Starting tool identification for photo:', photoUri);
+      
+      // For now, create mock tool identification results
+      // In the future, this will call the actual RAG service
+      const mockToolConfirmations = await createMockToolIdentification(photoUri);
+      
+      if (mockToolConfirmations.length > 0) {
+        // Check for duplicates against user's existing inventory
+        const toolService = ToolIdentificationService.getInstance();
+        const checkedConfirmations = await toolService.checkForDuplicates(
+          mockToolConfirmations,
+          user?.id || 'anonymous-user'
+        );
+        
+        setToolConfirmations(checkedConfirmations);
+        setShowToolConfirmation(true);
+      } else {
+        Alert.alert(
+          'No Tools Found',
+          'No tools were identified in this photo. Try taking a clearer photo or adjusting the angle.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error in tool identification:', error);
+      Alert.alert(
+        'Identification Failed',
+        'Failed to identify tools in the photo. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  // Create mock tool identification results for testing
+  const createMockToolIdentification = async (photoUri: string): Promise<ToolConfirmationData[]> => {
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const toolService = ToolIdentificationService.getInstance();
+    
+    // Mock vision analysis result
+    const mockAnalysisResult = {
+      mode: VisionMode.IDENTIFY_TOOLS,
+      photoUri: photoUri,
+      analysis: {
+        identifiedTools: [
+          {
+            name: 'Circular Saw',
+            confidence: 0.92,
+            category: 'power-tools',
+            usage: 'Used for making straight cuts in wood and other materials'
+          },
+          {
+            name: 'Measuring Tape',
+            confidence: 0.87,
+            category: 'measuring',
+            usage: 'Essential for accurate measurements in construction and crafting'
+          },
+          {
+            name: 'Safety Glasses',
+            confidence: 0.95,
+            category: 'safety',
+            usage: 'Protect eyes from debris and dust during cutting operations'
+          }
+        ],
+        missingTools: [],
+        recommendations: ['Consider adding a dust mask for better safety'],
+        safetyNotes: ['Always wear safety glasses when operating power tools']
+      },
+      confidence: 0.91,
+      timestamp: new Date(),
+      processingTime: 1200,
+      queryId: `mock_${Date.now()}`,
+    };
+    
+    return toolService.processVisionAnalysis(mockAnalysisResult);
+  };
+
+  // Handle tool confirmation modal events
+  const handleToolsAdded = (addedCount: number) => {
+    console.log(`✅ ${addedCount} tools added to inventory`);
+    Alert.alert(
+      'Success!',
+      `${addedCount} tools have been added to your inventory.`,
+      [
+        {
+          text: 'View Tools',
+          onPress: () => {
+            setShowToolConfirmation(false);
+            router.push('/(tabs)/tools');
+          }
+        },
+        {
+          text: 'Continue',
+          onPress: () => setShowToolConfirmation(false)
+        }
+      ]
+    );
+  };
+
+  const handleToolConfirmationClose = () => {
+    setShowToolConfirmation(false);
+    setToolConfirmations([]);
+  };
+
+  // Photo/Video Preview Handlers
+  const handleCreatePost = () => {
+    console.log('🎬 Creating post with media:', { photo: previewPhotoUri, video: previewVideoUri });
+    setShowPhotoPreview(false);
+    
+    // TEST: Show overlay instead of navigation
+    console.log('🟢 SHOWING TEST OVERLAY INSTEAD OF NAVIGATION');
+    setShowTestOverlay(true);
+  };
+
+  // Create real post with Firebase integration
+  const handleCreateRealPost = async () => {
+    if (!user) {
+      Alert.alert('Authentication Required', 'Please log in to create a post.');
+      return;
+    }
+
+    if (!captionText.trim()) {
+      Alert.alert('Caption Required', 'Please add a caption for your craft photo.');
+      return;
+    }
+
+    try {
+      console.log('🔄 Creating real post...');
+      
+      // Upload image to Firebase Storage
+      const basePath = generatePostImagePath(user.id);
+      const uploadResults = await uploadMultipleImages(
+        [previewPhotoUri],
+        basePath,
+        (progress) => {
+          console.log(`📊 Upload progress: ${progress.toFixed(1)}%`);
+        }
+      );
+
+      const imageUrls = uploadResults.map(result => result.url);
+      console.log('✅ Image uploaded successfully:', imageUrls[0]);
+
+      // Create post data with minimal required fields
+      const postData: Omit<CraftPost, 'id' | 'createdAt' | 'updatedAt'> = {
+        userId: user.id,
+        author: {
+          id: user.id,
+          displayName: user.displayName || 'Anonymous Craftsman',
+        },
+        content: {
+          description: captionText.trim(),
+          images: imageUrls,
+          videos: [],
+          materials: [],
+          timeSpent: 0,
+          difficulty: 'beginner' as const,
+        },
+        craftType: 'general' as const,
+        techniques: [],
+        tags: [],
+        engagement: {
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          saves: 0,
+        },
+        isEphemeral: false,
+      };
+
+      // Save post to Firestore
+      console.log('💾 Saving post to Firestore...');
+      const postId = await createPost(postData);
+      console.log('✅ Craft post created successfully:', postId);
+
+      // Show custom success dialog
+      setShowSuccessDialog(true);
+
+    } catch (error) {
+      console.error('❌ Error creating post:', error);
+      Alert.alert('Error', 'Failed to create post. Please try again.');
+    }
+  };
+
+  const handleRetakeMedia = () => {
+    console.log('🔄 Retaking media');
+    setShowPhotoPreview(false);
+    setPreviewPhotoUri('');
+    setPreviewVideoUri('');
+  };
+
+  const handleSaveToGallery = async () => {
+    try {
+      const mediaUri = previewPhotoUri || previewVideoUri;
+      if (mediaUri && mediaLibraryPermission?.granted) {
+        await MediaLibrary.saveToLibraryAsync(mediaUri);
+        Alert.alert('Saved!', 'Media has been saved to your gallery.');
+      } else {
+        Alert.alert('Permission Required', 'Please grant media library access to save to gallery.');
+      }
+    } catch (error) {
+      console.error('Error saving to gallery:', error);
+      Alert.alert('Error', 'Failed to save to gallery.');
+    }
+  };
+
+  const handleDiscardMedia = () => {
+    console.log('🗑️ Discarding media');
+    setShowPhotoPreview(false);
+    setPreviewPhotoUri('');
+    setPreviewVideoUri('');
   };
 
   // Start/stop video recording - SIMPLIFIED APPROACH
@@ -290,13 +540,15 @@ export default function CameraScreen({
             }
             
             // Use the copied video URI for playback
-            onVideoRecorded?.(newUri);
-            Alert.alert('Success', 'Video recorded successfully! 🎥');
+            setPreviewVideoUri(newUri);
+            setShowPhotoPreview(true); // Reuse same preview modal for videos
+            console.log('🎥 Video recorded successfully, showing preview');
           } catch (copyError) {
             console.error('🎥 Error copying video:', copyError);
             // Fallback to original URI if copy fails
-            onVideoRecorded?.(video.uri);
-            Alert.alert('Success', 'Video recorded successfully! 🎥');
+            setPreviewVideoUri(video.uri);
+            setShowPhotoPreview(true); // Reuse same preview modal for videos
+            console.log('🎥 Video recorded successfully (fallback), showing preview');
           }
         } else {
           Alert.alert('Error', 'No video file was created');
@@ -350,6 +602,302 @@ export default function CameraScreen({
       default: return 'flash-off';
     }
   };
+
+  // Add this after photo capture logic, around where the preview modal would be
+  if (showTestOverlay) {
+    return (
+      <View style={{ 
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#F5F5DC',
+        zIndex: 9999
+      }}>
+        {/* Header */}
+        <View style={{
+          paddingTop: 50,
+          paddingHorizontal: 20,
+          paddingBottom: 20,
+          backgroundColor: '#8B4513',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <TouchableOpacity onPress={() => {
+            console.log('🟢 CLOSING CREATE POST OVERLAY');
+            setShowTestOverlay(false);
+            setShowPhotoPreview(false);
+            setPreviewPhotoUri('');
+            setPreviewVideoUri('');
+          }}>
+            <Text style={{ color: 'white', fontSize: 16 }}>Cancel</Text>
+          </TouchableOpacity>
+          
+          <Text style={{ 
+            color: 'white', 
+            fontSize: 18, 
+            fontWeight: 'bold' 
+          }}>
+            Create Post
+          </Text>
+          
+          <TouchableOpacity 
+            style={{
+              backgroundColor: '#D2691E',
+              paddingHorizontal: 15,
+              paddingVertical: 8,
+              borderRadius: 6
+            }}
+            onPress={async () => {
+              console.log('📤 CREATING REAL POST:', {
+                photo: previewPhotoUri,
+                caption: captionText,
+                captionLength: captionText.length
+              });
+              
+              // Create the actual post using the same logic as CreatePostScreen
+              await handleCreateRealPost();
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>
+              Share
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content */}
+        <View style={{ flex: 1, padding: 20 }}>
+          {/* Photo Preview */}
+          {previewPhotoUri && (
+            <View style={{
+              backgroundColor: 'white',
+              borderRadius: 10,
+              padding: 10,
+              marginBottom: 20,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3
+            }}>
+              <Text style={{ 
+                fontSize: 16, 
+                fontWeight: 'bold', 
+                color: '#8B4513',
+                marginBottom: 10 
+              }}>
+                📸 Your Craft Photo
+              </Text>
+              <Image 
+                source={{ uri: previewPhotoUri }}
+                style={{
+                  height: 200,
+                  width: '100%',
+                  borderRadius: 8,
+                  backgroundColor: '#f0f0f0'
+                }}
+                resizeMode="cover"
+              />
+            </View>
+          )}
+
+          {/* Caption Input */}
+          <View style={{
+            backgroundColor: 'white',
+            borderRadius: 10,
+            padding: 15,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3
+          }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: 'bold', 
+              color: '#8B4513',
+              marginBottom: 10 
+            }}>
+              ✍️ Caption Your Craft Story
+            </Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                padding: 12,
+                minHeight: 100,
+                backgroundColor: '#fafafa',
+                fontSize: 14,
+                color: '#333',
+                textAlignVertical: 'top'
+              }}
+              placeholder="Describe your craft process, tools used, or what you learned..."
+              placeholderTextColor="#999"
+              multiline={true}
+              value={captionText}
+              onChangeText={setCaptionText}
+            />
+          </View>
+
+          {/* Success Message */}
+          <View style={{
+            backgroundColor: '#DFF2BF',
+            borderColor: '#4F8A10',
+            borderWidth: 1,
+            borderRadius: 8,
+            padding: 15,
+            alignItems: 'center'
+          }}>
+            <Text style={{ 
+              color: '#4F8A10', 
+              fontSize: 16, 
+              fontWeight: 'bold',
+              textAlign: 'center'
+            }}>
+              🎉 SUCCESS! Photo-to-Post Flow Works!
+            </Text>
+            <Text style={{ 
+              color: '#4F8A10', 
+              fontSize: 14,
+              textAlign: 'center',
+              marginTop: 5
+            }}>
+              This proves we can build the complete workflow without navigation issues.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Custom Success Dialog
+  if (showSuccessDialog) {
+    return (
+      <View style={{ 
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      }}>
+        <View style={{
+          backgroundColor: '#F5F5DC',
+          borderRadius: 20,
+          padding: 30,
+          margin: 20,
+          maxWidth: 320,
+          alignItems: 'center',
+          borderWidth: 3,
+          borderColor: '#8B4513'
+        }}>
+          {/* Success Icon */}
+          <View style={{
+            backgroundColor: '#4CAF50',
+            borderRadius: 50,
+            width: 80,
+            height: 80,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 20
+          }}>
+            <Text style={{ fontSize: 40, color: 'white' }}>✅</Text>
+          </View>
+
+          {/* Success Title */}
+          <Text style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: '#8B4513',
+            textAlign: 'center',
+            marginBottom: 10
+          }}>
+            🎉 Post Shared!
+          </Text>
+
+          {/* Success Message */}
+          <Text style={{
+            fontSize: 16,
+            color: '#654321',
+            textAlign: 'center',
+            marginBottom: 25,
+            lineHeight: 22
+          }}>
+            Your craft photo has been shared to the community! Other craftsmen can now discover and learn from your work.
+          </Text>
+
+          {/* Action Buttons */}
+          <View style={{
+            flexDirection: 'row',
+            gap: 15
+          }}>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#8B4513',
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+                borderRadius: 10,
+                flex: 1
+              }}
+              onPress={() => {
+                console.log('🏠 Navigating to feed');
+                setShowSuccessDialog(false);
+                setShowTestOverlay(false);
+                setShowPhotoPreview(false);
+                setPreviewPhotoUri('');
+                setCaptionText('');
+                onClose?.();
+                router.push('/(tabs)');
+              }}
+            >
+              <Text style={{ 
+                color: 'white', 
+                fontSize: 16, 
+                fontWeight: 'bold',
+                textAlign: 'center'
+              }}>
+                View Feed
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#D2691E',
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+                borderRadius: 10,
+                flex: 1
+              }}
+              onPress={() => {
+                console.log('📷 Taking another photo');
+                setShowSuccessDialog(false);
+                setShowTestOverlay(false);
+                setShowPhotoPreview(false);
+                setPreviewPhotoUri('');
+                setCaptionText('');
+              }}
+            >
+              <Text style={{ 
+                color: 'white', 
+                fontSize: 16, 
+                fontWeight: 'bold',
+                textAlign: 'center'
+              }}>
+                Take Another
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -611,6 +1159,63 @@ export default function CameraScreen({
           onReturnToDefault={handleReturnToDefault}
         />
       )}
+
+      {/* Photo/Video Preview Modal */}
+      <Modal
+        visible={showPhotoPreview}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <SafeAreaView style={styles.previewContainer}>
+          {/* Preview Header */}
+          <View style={styles.previewHeader}>
+            <TouchableOpacity style={styles.previewCloseButton} onPress={handleDiscardMedia}>
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.previewTitle}>
+              {previewPhotoUri ? '📸 Photo Preview' : '🎥 Video Preview'}
+            </Text>
+            <TouchableOpacity style={styles.previewSaveButton} onPress={handleSaveToGallery}>
+              <Ionicons name="download" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Preview Content */}
+          <View style={styles.previewContent}>
+            {previewPhotoUri ? (
+              <Image source={{ uri: previewPhotoUri }} style={styles.previewImage} resizeMode="contain" />
+            ) : previewVideoUri ? (
+              <View style={styles.videoPreviewContainer}>
+                <Ionicons name="play-circle" size={80} color="white" />
+                <Text style={styles.videoPreviewText}>Video Preview</Text>
+                <Text style={styles.videoPreviewSubtext}>Tap "Create Post" to share your video</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Preview Actions */}
+          <View style={styles.previewActions}>
+            <TouchableOpacity style={styles.previewRetakeButton} onPress={handleRetakeMedia}>
+              <Ionicons name="camera" size={24} color="#8B4513" />
+              <Text style={styles.previewRetakeText}>Retake</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.previewCreatePostButton} onPress={handleCreatePost}>
+              <Ionicons name="share" size={24} color="white" />
+              <Text style={styles.previewCreatePostText}>Create Post</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Tool Confirmation Modal */}
+      <ToolConfirmationModal
+        visible={showToolConfirmation}
+        toolConfirmations={toolConfirmations}
+        onClose={handleToolConfirmationClose}
+        onToolsAdded={handleToolsAdded}
+        photoUri={lastPhotoUri}
+      />
     </SafeAreaView>
   );
 }
@@ -878,5 +1483,86 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 8,
     top: 18,
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  previewCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewTitle: {
+    flex: 1,
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  previewSaveButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoPreviewContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoPreviewText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 10,
+  },
+  videoPreviewSubtext: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 10,
+  },
+  previewRetakeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  previewRetakeText: {
+    color: 'white',
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  previewCreatePostButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  previewCreatePostText: {
+    color: 'white',
+    fontSize: 16,
+    marginLeft: 10,
   },
 }); 

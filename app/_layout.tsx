@@ -93,16 +93,6 @@ function RootLayoutNav() {
     showAchievement,
   } = useNotifications();
 
-  // Force navigation to camera tab after app loads
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      console.log('🎯 Forcing navigation to camera tab');
-      router.replace('/(tabs)/camera');
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [router]);
-
   // Demo: Show welcome notification after app loads
   useEffect(() => {
     const timer = setTimeout(() => {
