@@ -13,6 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../stores/authStore';
+import { AuthService } from '../../services/firebase/auth';
+import SecureSettingsService from '../../shared/services/SecureSettingsService';
+import { CraftAlert } from '../../shared/components';
 
 const REMEMBER_ME_KEY = '@snapcraft_remember_me';
 const SAVED_CREDENTIALS_KEY = '@snapcraft_saved_credentials';
@@ -23,6 +26,14 @@ export function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Alert state
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'error' as 'error' | 'success' | 'warning' | 'info'
+  });
 
   // Load saved credentials on component mount
   useEffect(() => {
@@ -74,12 +85,22 @@ export function LoginScreen() {
     console.log('🚀 Authentication started:', { email, isSignUp });
     
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setAlertConfig({
+        title: 'Missing Information',
+        message: 'Please fill in all fields',
+        type: 'warning'
+      });
+      setShowAlert(true);
       return;
     }
 
     if (isSignUp && !displayName) {
-      Alert.alert('Error', 'Please enter your display name');
+      setAlertConfig({
+        title: 'Missing Information', 
+        message: 'Please enter your display name',
+        type: 'warning'
+      });
+      setShowAlert(true);
       return;
     }
 
@@ -87,18 +108,11 @@ export function LoginScreen() {
       clearError();
       if (isSignUp) {
         console.log('📝 Starting signUp...');
-        await signUp(email, password, displayName);
+        await AuthService.signUp(email, password, displayName);
         console.log('✅ SignUp successful');
         
         // Save credentials if remember me is checked
         await saveCredentials(email, password);
-        
-        // Use web-compatible notification
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert('Success: Account created! Welcome to SnapCraft!');
-        } else {
-          Alert.alert('Success', 'Account created! Welcome to SnapCraft!');
-        }
         // Clear form only after successful authentication (unless remembering)
         if (!rememberMe) {
           setEmail('');
@@ -107,18 +121,12 @@ export function LoginScreen() {
         setDisplayName('');
       } else {
         console.log('🔑 Starting signIn...');
-        await signIn(email, password);
+        await AuthService.signIn(email, password);
         console.log('✅ SignIn successful');
         
         // Save credentials if remember me is checked
         await saveCredentials(email, password);
         
-        // Use web-compatible notification
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert('Success: Welcome back to SnapCraft!');
-        } else {
-          Alert.alert('Success', 'Welcome back to SnapCraft!');
-        }
         // Clear form only after successful authentication (unless remembering)
         if (!rememberMe) {
           setEmail('');
@@ -157,12 +165,13 @@ export function LoginScreen() {
         errorMessage = err.message || 'Authentication failed';
       }
       
-      // Use web-compatible error notification
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert(`Authentication Error: ${errorMessage}`);
-      } else {
-        Alert.alert('Authentication Error', errorMessage);
-      }
+      // Show custom craft alert
+      setAlertConfig({
+        title: 'Authentication Error',
+        message: errorMessage,
+        type: 'error'
+      });
+      setShowAlert(true);
       console.log('Showing error alert:', errorMessage);
     }
   };
@@ -172,8 +181,6 @@ export function LoginScreen() {
     clearError();
     setDisplayName('');
   };
-
-
 
   return (
     <KeyboardAvoidingView 
@@ -267,6 +274,15 @@ export function LoginScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Custom Alert */}
+      <CraftAlert
+        visible={showAlert}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setShowAlert(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

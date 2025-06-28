@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,25 +10,50 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { CameraScreen, MediaGallery, VideoPlayer } from '@/src/features/camera';
 
 export default function CameraTab() {
+  const navigation = useNavigation();
   const [showCamera, setShowCamera] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedVideoUri, setSelectedVideoUri] = useState<string>('');
+  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
+  const [intentionallyClosed, setIntentionallyClosed] = useState(false);
+
+  // Auto-open camera when tab is focused (Snapchat-style)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📷 Camera tab focused - auto-opening camera');
+      // Always open camera when tab is focused, regardless of previous state
+      setShowCamera(true);
+      setCameraPermissionDenied(false);
+      setIntentionallyClosed(false); // Reset intentional closure flag on tab focus
+      
+      return () => {
+        // Cleanup when tab loses focus
+        console.log('📷 Camera tab unfocused');
+      };
+    }, [])
+  );
+
+  // Listen for tab press events to ensure camera opens even when already on camera tab
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress' as any, (e) => {
+      console.log('📷 Camera tab pressed directly - forcing camera open');
+      // Force camera to open when tab is pressed, mimicking quick action button
+      setShowCamera(true);
+      setCameraPermissionDenied(false);
+      setIntentionallyClosed(false);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const handlePhotoTaken = (uri: string) => {
     console.log('Photo taken:', uri);
     setShowCamera(false);
-    
-    // Show success message
-    const message = 'Great craft documentation! Photo saved successfully. 📸';
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert(message);
-    } else {
-      Alert.alert('Success', message);
-    }
   };
 
   const handleVideoRecorded = (uri: string) => {
@@ -38,19 +63,20 @@ export default function CameraTab() {
     // For both mock and real videos, open them in the video player
     setSelectedVideoUri(uri);
     setShowVideoPlayer(true);
-    
-    // Show success message for real videos
-    if (!uri.startsWith('mock://')) {
-      setTimeout(() => {
-        const message = 'Excellent process documentation! Video recorded and ready to view. 🎥';
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert(message);
-        } else {
-          Alert.alert('Success', message);
-        }
-      }, 500); // Delay to let video player open first
-    }
   };
+
+  const handleCameraClose = () => {
+    console.log('📷 Camera closed by user via Settings button');
+    setShowCamera(false);
+    setIntentionallyClosed(true); // Mark as intentionally closed to prevent auto-reopening
+  };
+
+  // Handle camera errors by monitoring if camera closes unexpectedly
+  useEffect(() => {
+    if (!showCamera && cameraPermissionDenied) {
+      console.log('📷 Camera permission was denied');
+    }
+  }, [showCamera, cameraPermissionDenied]);
 
   const handleMediaSelected = (media: any) => {
     console.log('Media selected:', media);
@@ -71,13 +97,17 @@ export default function CameraTab() {
     }
   };
 
-  return (
+  // Fallback UI when camera is closed or permissions denied
+  const renderFallbackUI = () => (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📸 Craft Documentation</Text>
+        <Text style={styles.headerTitle}>⚙️ Camera Settings</Text>
         <Text style={styles.headerSubtitle}>
-          Capture and organize your craft process
+          {cameraPermissionDenied 
+            ? 'Camera access is required for craft documentation'
+            : 'Configure camera preferences and access documentation tools'
+          }
         </Text>
       </View>
 
@@ -86,21 +116,43 @@ export default function CameraTab() {
         {/* Camera Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="camera" size={24} color="#8B4513" />
-            <Text style={styles.sectionTitle}>Capture New Content</Text>
+            <Ionicons 
+              name={cameraPermissionDenied ? "camera-outline" : "camera"} 
+              size={24} 
+              color={cameraPermissionDenied ? "#CD853F" : "#8B4513"} 
+            />
+            <Text style={styles.sectionTitle}>
+              {cameraPermissionDenied ? 'Camera Access Needed' : 'Camera Access & Launch'}
+            </Text>
           </View>
           
           <TouchableOpacity 
-            style={styles.primaryButton}
-            onPress={() => setShowCamera(true)}
+            style={[
+              styles.primaryButton,
+              cameraPermissionDenied && styles.warningButton
+            ]}
+            onPress={() => {
+              console.log('📷 Open Camera button pressed from settings');
+              setShowCamera(true);
+              setCameraPermissionDenied(false);
+              setIntentionallyClosed(false); // Reset intentional closure flag
+            }}
           >
-            <Ionicons name="camera" size={24} color="white" />
-            <Text style={styles.primaryButtonText}>Open Camera</Text>
+            <Ionicons 
+              name={cameraPermissionDenied ? "settings" : "camera"} 
+              size={24} 
+              color="white" 
+            />
+            <Text style={styles.primaryButtonText}>
+              {cameraPermissionDenied ? 'Grant Camera Access' : 'Open Camera'}
+            </Text>
           </TouchableOpacity>
           
           <Text style={styles.sectionDescription}>
-            Document your craft process with photos and videos. Perfect for showing 
-            before/after comparisons, technique demonstrations, and tool usage.
+            {cameraPermissionDenied 
+              ? 'Please allow camera access in your device settings to document your craft process.'
+              : 'Launch the camera to document your craft process with photos and videos. Perfect for showing before/after comparisons, technique demonstrations, and tool usage.'
+            }
           </Text>
         </View>
 
@@ -108,7 +160,7 @@ export default function CameraTab() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="images" size={24} color="#8B4513" />
-            <Text style={styles.sectionTitle}>View Documentation</Text>
+            <Text style={styles.sectionTitle}>Media Gallery Access</Text>
           </View>
           
           <TouchableOpacity 
@@ -120,40 +172,47 @@ export default function CameraTab() {
           </TouchableOpacity>
           
           <Text style={styles.sectionDescription}>
-            Browse and organize your craft documentation. View your photos and videos, 
-            and select media for sharing or further editing.
+            Access your media gallery to browse and organize your craft documentation. 
+            View your photos and videos, and select media for sharing or further editing.
           </Text>
         </View>
 
-        {/* Features List */}
+        {/* Quick Actions */}
         <View style={styles.featuresSection}>
-          <Text style={styles.featuresTitle}>📋 Camera Features</Text>
-          <View style={styles.featuresList}>
-            <View style={styles.featureItem}>
-              <Ionicons name="flash" size={16} color="#8B4513" />
-              <Text style={styles.featureText}>Flash control (auto, on, off)</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="camera-reverse" size={16} color="#8B4513" />
-              <Text style={styles.featureText}>Front/back camera toggle</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="videocam" size={16} color="#8B4513" />
-              <Text style={styles.featureText}>Video recording (60s max)</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="save" size={16} color="#8B4513" />
-              <Text style={styles.featureText}>Auto-save to device gallery</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="images" size={16} color="#8B4513" />
-              <Text style={styles.featureText}>Gallery access & selection</Text>
-            </View>
+          <Text style={styles.featuresTitle}>⚡ Quick Actions</Text>
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => {
+                console.log('📷 Quick action camera button pressed');
+                setShowCamera(true);
+                setCameraPermissionDenied(false);
+                setIntentionallyClosed(false); // Reset intentional closure flag
+              }}
+            >
+              <Ionicons name="camera" size={20} color="#8B4513" />
+              <Text style={styles.quickActionText}>Camera</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => setShowGallery(true)}
+            >
+              <Ionicons name="images" size={20} color="#8B4513" />
+              <Text style={styles.quickActionText}>Gallery</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
+    </SafeAreaView>
+  );
 
-      {/* Camera Modal */}
+  return (
+    <>
+      {/* Show fallback UI when camera is not active */}
+      {!showCamera && renderFallbackUI()}
+
+      {/* Camera Modal - Auto-opens on tab focus */}
       <Modal
         visible={showCamera}
         animationType="slide"
@@ -162,7 +221,7 @@ export default function CameraTab() {
         <CameraScreen
           onPhotoTaken={handlePhotoTaken}
           onVideoRecorded={handleVideoRecorded}
-          onClose={() => setShowCamera(false)}
+          onClose={handleCameraClose}
         />
       </Modal>
 
@@ -190,7 +249,7 @@ export default function CameraTab() {
           title="Craft Process Video"
         />
       )}
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -316,5 +375,25 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 10,
     flex: 1,
+  },
+  warningButton: {
+    backgroundColor: '#CD853F',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickActionButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  quickActionText: {
+    color: '#8B4513',
+    fontSize: 18,
+    fontWeight: '600',
   },
 }); 

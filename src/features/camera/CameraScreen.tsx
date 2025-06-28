@@ -14,6 +14,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
+import { useTheme } from '@/src/shared/contexts/ThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -28,6 +31,10 @@ export default function CameraScreen({
   onVideoRecorded, 
   onClose 
 }: CameraScreenProps) {
+  // Theme and navigation
+  const { theme } = useTheme();
+  const router = useRouter();
+  
   // Camera permissions and setup
   const [permission, requestPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
@@ -125,15 +132,8 @@ export default function CameraScreen({
           await MediaLibrary.saveToLibraryAsync(photo.uri);
         }
         
-        // Call callback if provided
+        console.log('Photo taken:', photo.uri);
         onPhotoTaken?.(photo.uri);
-        
-        // Show success message
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert('Photo captured successfully! 📸');
-        } else {
-          Alert.alert('Success', 'Photo captured successfully! 📸');
-        }
       }
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -297,10 +297,6 @@ export default function CameraScreen({
 
       {/* Header Controls - Absolute positioned */}
       <View style={styles.headerControls}>
-        <TouchableOpacity style={styles.controlButton} onPress={onClose}>
-          <Ionicons name="close" size={28} color="white" />
-        </TouchableOpacity>
-        
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
             <Ionicons name={getFlashIcon()} size={24} color="white" />
@@ -376,6 +372,95 @@ export default function CameraScreen({
           </Text>
         </View>
       </View>
+
+      {/* Translucent Tab Bar Overlay */}
+      <View style={[styles.translucentTabBar, { backgroundColor: theme.colors.surface + '80' }]}>
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => {
+            console.log('📱 Navigating to Craft Feed from camera');
+            onClose?.(); // Close camera first
+            router.push('/(tabs)');
+          }}
+        >
+          <FontAwesome 
+            name="home" 
+            size={24} 
+            color={theme.colors.tabIconDefault} 
+          />
+          <Text style={[styles.tabLabel, { color: theme.colors.tabIconDefault }]}>
+            Craft Feed
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => {
+            console.log('📱 Navigating to Tools from camera');
+            onClose?.(); // Close camera first
+            router.push('/(tabs)/tools');
+          }}
+        >
+          <FontAwesome 
+            name="wrench" 
+            size={24} 
+            color={theme.colors.tabIconDefault} 
+          />
+          <Text style={[styles.tabLabel, { color: theme.colors.tabIconDefault }]}>
+            Tools
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.tabItem, styles.activeTab]}
+          onPress={onClose}
+        >
+          <FontAwesome 
+            name="cog" 
+            size={24} 
+            color={theme.colors.tabIconSelected} 
+          />
+          <Text style={[styles.tabLabel, { color: theme.colors.tabIconSelected }]}>
+            Settings
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => {
+            console.log('📱 Navigating to Knowledge from camera');
+            onClose?.(); // Close camera first
+            router.push('/(tabs)/knowledge');
+          }}
+        >
+          <FontAwesome 
+            name="book" 
+            size={24} 
+            color={theme.colors.tabIconDefault} 
+          />
+          <Text style={[styles.tabLabel, { color: theme.colors.tabIconDefault }]}>
+            Knowledge
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tabItem}
+          onPress={() => {
+            console.log('📱 Navigating to Profile from camera');
+            onClose?.(); // Close camera first
+            router.push('/(tabs)/profile');
+          }}
+        >
+          <FontAwesome 
+            name="user" 
+            size={24} 
+            color={theme.colors.tabIconDefault} 
+          />
+          <Text style={[styles.tabLabel, { color: theme.colors.tabIconDefault }]}>
+            Profile
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -414,9 +499,9 @@ const styles = StyleSheet.create({
   },
   headerControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end', // Changed from 'space-between' to 'flex-end' since we only have right-side controls
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 60, // Increased from 20 to clear status bar and notch
     paddingHorizontal: 20,
     position: 'absolute',
     top: 0,
@@ -438,7 +523,7 @@ const styles = StyleSheet.create({
   },
   recordingIndicator: {
     position: 'absolute',
-    top: 80,
+    top: 120, // Moved down to avoid overlap with header controls
     left: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -490,7 +575,7 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 130, // Increased from 40 to clear translucent tab bar (83px height + 47px spacing)
     left: 0,
     right: 0,
     paddingHorizontal: 20,
@@ -562,5 +647,34 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+  },
+  translucentTabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 83, // Standard tab bar height + safe area
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingBottom: 20, // Safe area padding
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 5, // Below camera controls but above camera
+  },
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingVertical: 4,
+  },
+  activeTab: {
+    // Could add additional styling for active tab if needed
+  },
+  tabLabel: {
+    fontSize: 10,
+    marginTop: 2,
+    fontWeight: '500',
   },
 }); 
