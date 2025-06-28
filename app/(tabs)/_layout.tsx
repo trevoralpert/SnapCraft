@@ -64,6 +64,7 @@ export default function TabLayout() {
           headerRight: () => <LogoutButton color={theme.colors.text} />,
         }}
       />
+
       <Tabs.Screen
         name="camera"
         options={{

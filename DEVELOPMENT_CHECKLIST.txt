@@ -66,6 +66,25 @@ Last Updated: June 27, 2025 - 7:35 PM
       - Added camera close + navigation pattern for proper modal dismissal
       - Enhanced logging for debugging navigation from camera modal
       - Seamless navigation between camera and all other app sections
+    * SNAPCHAT-STYLE DEFAULT LANDING: Camera is now the default page after login
+      - Added initialRouteName="camera" to tab navigator configuration
+      - Users immediately land on camera after authentication (like Snapchat)
+      - Camera-first experience emphasizes craft documentation priority
+      - Reduces friction for immediate content creation
+      - CACHE CLEARING FIX: Reordered tabs to ensure camera appears first in navigation structure
+        * Moved camera tab before index tab in _layout.tsx to guarantee default behavior
+        * Camera tab now consistently defaults after Metro cache clearing operations
+        * Maintains Snapchat-style camera-first experience even after development resets
+      - FORCED NAVIGATION FIX: Added programmatic navigation to camera tab after authentication
+        * Removed dependency on unreliable initialRouteName in Expo Router
+        * Added router.replace('/(tabs)/camera') in root layout after app loads
+        * 100ms delay ensures proper navigation stack initialization
+        * Guarantees camera-first landing regardless of Expo Router quirks
+      - TAB BAR LAYOUT OPTIMIZATION: Reordered tabs for better UX (June 28, 2025)
+        * Moved Camera to center position (3rd tab) for traditional social media layout
+        * Tab order now: Craft Feed | Tools | Camera | Knowledge | Profile
+        * Maintains camera-first auto-opening behavior while improving visual hierarchy
+        * Camera translucent tab bar in camera view remains perfectly functional
 
 ✅ MAJOR UI IMPROVEMENT: Custom Alert System Implementation
   - Removed debug/nuisance alerts (login success, photo capture success)

@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -84,6 +84,7 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const { isDark } = useTheme();
+  const router = useRouter();
   const {
     notifications,
     dismissNotification,
@@ -91,6 +92,16 @@ function RootLayoutNav() {
     showError,
     showAchievement,
   } = useNotifications();
+
+  // Force navigation to camera tab after app loads
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      console.log('🎯 Forcing navigation to camera tab');
+      router.replace('/(tabs)/camera');
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [router]);
 
   // Demo: Show welcome notification after app loads
   useEffect(() => {
