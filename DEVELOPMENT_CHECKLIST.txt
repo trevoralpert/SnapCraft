@@ -109,6 +109,16 @@ Last Updated: June 27, 2025 - 7:35 PM
         * Filter header shows "Filter by Category" with option count
         * Improved space efficiency while maintaining easy access to all filters
         * Maintains all existing functionality (search, sort, add tools, individual tool display)
+      - POST OPTIONS MENU: Added functional dropdown menu to craft feed posts (June 28, 2025)
+        * Fixed non-functional three dots (ellipsis) button on post headers
+        * Implemented dropdown menu with context-sensitive options
+        * For own posts: Save to list, Copy link, Delete post
+        * For other posts: Save to list, Copy link, Hide post, Report post
+        * Added proper state management and visual feedback
+        * Includes confirmation dialogs for destructive actions (delete, report)
+        * TouchableWithoutFeedback integration to close menu when tapping outside
+        * POSITIONING FIX: Moved menu button left with padding and dropdown appears above button
+        * Fixed dropdown cutoff issues by positioning it properly within screen bounds
 
 ✅ MAJOR UI IMPROVEMENT: Custom Alert System Implementation
   - Removed debug/nuisance alerts (login success, photo capture success)

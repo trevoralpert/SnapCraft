@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
@@ -123,6 +124,8 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
+  const [showPostOptions, setShowPostOptions] = useState<string | null>(null);
   
   // Stories state
   const [showStoryViewer, setShowStoryViewer] = useState(false);
@@ -250,8 +253,81 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   };
 
   const handleSave = (postId: string) => {
-    console.log('🔖 Saving post:', postId);
-    showSuccess('Saved!', 'Post saved to your craft collection. Access saved posts from your profile.');
+    showSuccess('Post saved!', 'Added to your saved projects');
+    console.log('💾 Save post:', postId);
+  };
+
+  // Post options handlers
+  const handlePostOptions = (postId: string) => {
+    setShowPostOptions(showPostOptions === postId ? null : postId);
+  };
+
+  const handleSaveToList = (postId: string) => {
+    const newSavedPosts = new Set(savedPosts);
+    const isSaved = savedPosts.has(postId);
+    
+    if (isSaved) {
+      newSavedPosts.delete(postId);
+      showInfo('Removed from saved', 'Post removed from your saved list');
+    } else {
+      newSavedPosts.add(postId);
+      showSuccess('Saved to list!', 'Added to your saved projects');
+    }
+    
+    setSavedPosts(newSavedPosts);
+    setShowPostOptions(null);
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+            showSuccess('Post deleted', 'Your post has been removed');
+            setShowPostOptions(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReportPost = (postId: string) => {
+    Alert.alert(
+      'Report Post',
+      'Why are you reporting this post?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Inappropriate content', onPress: () => submitReport(postId, 'inappropriate') },
+        { text: 'Spam', onPress: () => submitReport(postId, 'spam') },
+        { text: 'Copyright violation', onPress: () => submitReport(postId, 'copyright') },
+        { text: 'Other', onPress: () => submitReport(postId, 'other') },
+      ]
+    );
+    setShowPostOptions(null);
+  };
+
+  const submitReport = (postId: string, reason: string) => {
+    // In a real app, this would send the report to your backend
+    showSuccess('Report submitted', 'Thank you for helping keep our community safe');
+    console.log('🚨 Report submitted:', { postId, reason });
+  };
+
+  const handleCopyLink = (postId: string) => {
+    // In a real app, this would copy the post URL to clipboard
+    showSuccess('Link copied!', 'Post link copied to clipboard');
+    setShowPostOptions(null);
+  };
+
+  const handleHidePost = (postId: string) => {
+    setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+    showInfo('Post hidden', 'You won\'t see posts from this user anymore');
+    setShowPostOptions(null);
   };
 
   // Story handlers
@@ -317,6 +393,9 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   // Render craft post
   const renderCraftPost = ({ item }: { item: typeof MOCK_CRAFT_POSTS[0] }) => {
     const isLiked = likedPosts.has(item.id);
+    const isSaved = savedPosts.has(item.id);
+    const isOwnPost = user?.id === item.userId;
+    const showOptions = showPostOptions === item.id;
     
     return (
       <View style={styles.postContainer}>
@@ -331,9 +410,69 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
               </Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.menuButton}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#8B4513" />
-          </TouchableOpacity>
+          <View style={styles.postOptionsContainer}>
+            <TouchableOpacity 
+              style={styles.menuButton}
+              onPress={() => handlePostOptions(item.id)}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color="#8B4513" />
+            </TouchableOpacity>
+            
+            {/* Options Dropdown */}
+            {showOptions && (
+              <View style={styles.optionsDropdown}>
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() => handleSaveToList(item.id)}
+                >
+                  <Ionicons 
+                    name={isSaved ? "bookmark" : "bookmark-outline"} 
+                    size={18} 
+                    color="#8B4513" 
+                  />
+                  <Text style={styles.optionText}>
+                    {isSaved ? 'Remove from saved' : 'Save to list'}
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() => handleCopyLink(item.id)}
+                >
+                  <Ionicons name="link-outline" size={18} color="#8B4513" />
+                  <Text style={styles.optionText}>Copy link</Text>
+                </TouchableOpacity>
+                
+                {isOwnPost ? (
+                  <TouchableOpacity
+                    style={styles.optionItem}
+                    onPress={() => handleDeletePost(item.id)}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#FF4444" />
+                    <Text style={[styles.optionText, { color: '#FF4444' }]}>Delete post</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={styles.optionItem}
+                      onPress={() => handleHidePost(item.id)}
+                    >
+                      <Ionicons name="eye-off-outline" size={18} color="#8B4513" />
+                      <Text style={styles.optionText}>Hide post</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.optionItem}
+                      onPress={() => handleReportPost(item.id)}
+                    >
+                      <Ionicons name="flag-outline" size={18} color="#FF4444" />
+                      <Text style={[styles.optionText, { color: '#FF4444' }]}>Report post</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Post Content */}
@@ -627,8 +766,44 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
+  postOptionsContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuButton: {
-    padding: 5,
+    padding: 8,
+    marginLeft: -20,
+  },
+  optionsDropdown: {
+    position: 'absolute',
+    right: -10,
+    top: 35,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    zIndex: 1000,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  optionText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 8,
+    flex: 1,
   },
   postDescription: {
     fontSize: 14,
