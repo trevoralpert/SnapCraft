@@ -24,6 +24,8 @@ interface EnvironmentConfig {
     enableCrashReporting: boolean;
     enableRAGFeatures: boolean;
     enableDemoMode: boolean;
+    enableVisionModes: boolean;
+    enableAdvancedVisionModes: boolean; // For skill assessment and safety check
   };
   security: {
     enableEncryption: boolean;
@@ -112,6 +114,8 @@ class EnvironmentService {
           enableCrashReporting: false,
           enableRAGFeatures: true,
           enableDemoMode: true,
+          enableVisionModes: true,
+          enableAdvancedVisionModes: false, // Keep advanced modes disabled in dev for now
         },
         security: {
           enableEncryption: true,
@@ -142,6 +146,8 @@ class EnvironmentService {
           enableCrashReporting: true,
           enableRAGFeatures: true,
           enableDemoMode: false,
+          enableVisionModes: true,
+          enableAdvancedVisionModes: false, // Enable in staging after basic modes are stable
         },
         security: {
           enableEncryption: true,
@@ -172,6 +178,8 @@ class EnvironmentService {
           enableCrashReporting: true,
           enableRAGFeatures: true,
           enableDemoMode: false,
+          enableVisionModes: true,
+          enableAdvancedVisionModes: true, // Enable all modes in production
         },
         security: {
           enableEncryption: true,

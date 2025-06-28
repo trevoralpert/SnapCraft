@@ -226,4 +226,7 @@ export interface KnowledgeSource {
   url?: string;
   type: 'tutorial' | 'reference' | 'community';
   relevanceScore: number;
-} 
+}
+
+// Vision AI Types
+export * from './vision'; 

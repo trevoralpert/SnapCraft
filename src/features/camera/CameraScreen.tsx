@@ -17,10 +17,15 @@ import { Ionicons } from '@expo/vector-icons';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/shared/contexts/ThemeContext';
+import { VisionMode, VisionCameraProps } from '@/src/shared/types/vision';
+import { getDefaultVisionMode, getVisionModeConfig } from '@/src/shared/constants/visionModes';
+import EnvironmentService from '@/src/shared/services/EnvironmentService';
+import VisionModeSelector from './VisionModeSelector';
+import VisionToggleButton from './VisionToggleButton';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-interface CameraScreenProps {
+interface CameraScreenProps extends VisionCameraProps {
   onPhotoTaken?: (uri: string) => void;
   onVideoRecorded?: (uri: string) => void;
   onClose?: () => void;
@@ -29,11 +34,19 @@ interface CameraScreenProps {
 export default function CameraScreen({ 
   onPhotoTaken, 
   onVideoRecorded, 
-  onClose 
+  onClose,
+  initialVisionMode,
+  enableVisionModes = true,
+  onAnalysisComplete,
+  onModeChange
 }: CameraScreenProps) {
   // Theme and navigation
   const { theme } = useTheme();
   const router = useRouter();
+  
+  // Environment service for feature flags
+  const envService = EnvironmentService.getInstance();
+  const visionModesEnabled = envService.isFeatureEnabled('enableVisionModes') && enableVisionModes;
   
   // Camera permissions and setup
   const [permission, requestPermission] = useCameraPermissions();
@@ -46,6 +59,13 @@ export default function CameraScreen({
   const [isRecording, setIsRecording] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [mode, setMode] = useState<'picture' | 'video'>('picture');
+  
+  // Vision mode state
+  const [isVisionMode, setIsVisionMode] = useState(false);
+  const [currentVisionMode, setCurrentVisionMode] = useState<VisionMode>(
+    initialVisionMode || getDefaultVisionMode()
+  );
+  const [showVisionSelector, setShowVisionSelector] = useState(false);
   
   // Camera ref
   const cameraRef = useRef<CameraView>(null);
@@ -113,6 +133,32 @@ export default function CameraScreen({
       }
     });
   }
+
+  // Vision mode handlers
+  const toggleVisionMode = () => {
+    const newVisionMode = !isVisionMode;
+    setIsVisionMode(newVisionMode);
+    
+    if (newVisionMode) {
+      setShowVisionSelector(true);
+    } else {
+      setShowVisionSelector(false);
+    }
+    
+    onModeChange?.(newVisionMode ? currentVisionMode : undefined as any);
+  };
+
+  const handleVisionModeSelect = (mode: VisionMode) => {
+    setCurrentVisionMode(mode);
+    setShowVisionSelector(false);
+    onModeChange?.(mode);
+  };
+
+  const handleVisionSelectorToggle = () => {
+    if (isVisionMode) {
+      setShowVisionSelector(!showVisionSelector);
+    }
+  };
 
   // Take photo
   const takePhoto = async () => {
@@ -297,6 +343,17 @@ export default function CameraScreen({
 
       {/* Header Controls - Absolute positioned */}
       <View style={styles.headerControls}>
+        {/* Vision Toggle Button - Left side */}
+        {visionModesEnabled && (
+          <TouchableOpacity onPress={handleVisionSelectorToggle}>
+            <VisionToggleButton
+              isVisionMode={isVisionMode}
+              currentVisionMode={currentVisionMode}
+              onToggle={toggleVisionMode}
+            />
+          </TouchableOpacity>
+        )}
+        
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
             <Ionicons name={getFlashIcon()} size={24} color="white" />
@@ -308,6 +365,17 @@ export default function CameraScreen({
         </View>
       </View>
 
+      {/* Vision Mode Selector - Positioned below header */}
+      {visionModesEnabled && (
+        <View style={styles.visionSelectorContainer}>
+          <VisionModeSelector
+            selectedMode={currentVisionMode}
+            onModeSelect={handleVisionModeSelect}
+            isVisible={showVisionSelector}
+          />
+        </View>
+      )}
+
       {/* Recording Indicator - Absolute positioned */}
       {isRecording && (
         <View style={styles.recordingIndicator}>
@@ -318,10 +386,21 @@ export default function CameraScreen({
 
       {/* Craft Documentation Overlay - Absolute positioned */}
       <View style={styles.craftOverlay}>
-        <Text style={styles.craftTitle}>📸 Craft Documentation</Text>
-        <Text style={styles.craftSubtitle}>
-          Capture your craft process, tools, and results
-        </Text>
+        {isVisionMode ? (
+          <>
+            <Text style={styles.craftTitle}>🔍 Vision Mode Active</Text>
+            <Text style={styles.craftSubtitle}>
+              Photos will be analyzed using {currentVisionMode ? getVisionModeConfig(currentVisionMode)?.name : 'AI Vision'}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.craftTitle}>📸 Craft Documentation</Text>
+            <Text style={styles.craftSubtitle}>
+              Capture your craft process, tools, and results
+            </Text>
+          </>
+        )}
       </View>
 
       {/* Bottom Controls - Absolute positioned */}
@@ -499,9 +578,9 @@ const styles = StyleSheet.create({
   },
   headerControls: {
     flexDirection: 'row',
-    justifyContent: 'flex-end', // Changed from 'space-between' to 'flex-end' since we only have right-side controls
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60, // Increased from 20 to clear status bar and notch
+    paddingTop: 60,
     paddingHorizontal: 20,
     position: 'absolute',
     top: 0,
@@ -523,7 +602,7 @@ const styles = StyleSheet.create({
   },
   recordingIndicator: {
     position: 'absolute',
-    top: 120, // Moved down to avoid overlap with header controls
+    top: 120,
     left: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -575,7 +654,7 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     position: 'absolute',
-    bottom: 130, // Increased from 40 to clear translucent tab bar (83px height + 47px spacing)
+    bottom: 130,
     left: 0,
     right: 0,
     paddingHorizontal: 20,
@@ -653,15 +732,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 83, // Standard tab bar height + safe area
+    height: 83,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingBottom: 20, // Safe area padding
+    paddingBottom: 20,
     paddingTop: 8,
     borderTopWidth: 0.5,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
-    zIndex: 5, // Below camera controls but above camera
+    zIndex: 5,
   },
   tabItem: {
     alignItems: 'center',
@@ -676,5 +755,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 2,
     fontWeight: '500',
+  },
+  visionSelectorContainer: {
+    position: 'absolute',
+    top: 120,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
 }); 

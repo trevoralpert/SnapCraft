@@ -1,6 +1,9 @@
 import OpenAIService, { CraftContext, RAGResponse } from './openai';
 import PineconeService, { SearchQuery, SearchResult, CraftKnowledge } from './pinecone';
 import { useAuthStore } from '../../stores/authStore';
+// Vision mode types - for future integration
+import { VisionMode, VisionModeConfig } from '../../shared/types/vision';
+import { getAvailableVisionModes } from '../../shared/constants/visionModes';
 
 export interface RAGQuery {
   query: string;
