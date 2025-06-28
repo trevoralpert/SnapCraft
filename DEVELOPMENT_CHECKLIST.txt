@@ -85,6 +85,18 @@ Last Updated: June 27, 2025 - 7:35 PM
         * Tab order now: Craft Feed | Tools | Camera | Knowledge | Profile
         * Maintains camera-first auto-opening behavior while improving visual hierarchy
         * Camera translucent tab bar in camera view remains perfectly functional
+      - MARKDOWN RENDERING FIX: Fixed Smart Craft Assistant response formatting (June 28, 2025)
+        * Added react-native-markdown-display package for proper markdown rendering
+        * Replaced plain text rendering with Markdown component for AI responses
+        * Created comprehensive markdownStyles with craft-themed colors (#8B4513)
+        * Fixed TypeScript errors with proper 'as const' type assertions
+        * AI responses now display **bold**, *italic*, lists, and other formatting correctly
+      - MARKDOWN RENDERING FIX: Fixed Smart Photo Analysis response formatting (June 28, 2025)
+        * Applied same markdown rendering fix to PhotoAnalysisScreen.tsx
+        * Added Markdown component import and comprehensive markdownStyles
+        * Photo analysis results now display proper heading hierarchy (### Analysis:)
+        * Consistent craft-themed formatting across all AI-powered features
+        * Both Smart Craft Assistant and Photo Analysis now have professional text formatting
 
 ✅ MAJOR UI IMPROVEMENT: Custom Alert System Implementation
   - Removed debug/nuisance alerts (login success, photo capture success)

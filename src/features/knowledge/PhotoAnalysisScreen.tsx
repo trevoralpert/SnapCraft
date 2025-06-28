@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Markdown from 'react-native-markdown-display';
 import * as ImagePicker from 'expo-image-picker';
 import { OpenAIService, PhotoAnalysisResponse, CraftContext } from '../../services/rag/openai';
 import { RAGService } from '../../services/rag';
@@ -308,9 +309,9 @@ export default function PhotoAnalysisScreen({ onBack }: PhotoAnalysisScreenProps
 
               {/* Main Analysis */}
               <View style={styles.analysisMain}>
-                <Text style={styles.analysisText}>
+                <Markdown style={markdownStyles}>
                   {analysisResult.response.analysis}
-                </Text>
+                </Markdown>
               </View>
 
               {/* Structured Results */}
@@ -381,6 +382,82 @@ export default function PhotoAnalysisScreen({ onBack }: PhotoAnalysisScreenProps
     </SafeAreaView>
   );
 }
+
+// Markdown styles for proper formatting
+const markdownStyles = {
+  body: {
+    fontSize: 16,
+    color: '#333333',
+    lineHeight: 24,
+  },
+  heading1: {
+    fontSize: 24,
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+    marginBottom: 16,
+  },
+  heading2: {
+    fontSize: 20,
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+    marginBottom: 12,
+  },
+  heading3: {
+    fontSize: 18,
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+    marginBottom: 8,
+  },
+  paragraph: {
+    fontSize: 16,
+    color: '#333333',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  strong: {
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+  },
+  em: {
+    fontStyle: 'italic' as const,
+  },
+  list_item: {
+    fontSize: 16,
+    color: '#333333',
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  bullet_list: {
+    marginBottom: 16,
+  },
+  ordered_list: {
+    marginBottom: 16,
+  },
+  code_inline: {
+    backgroundColor: '#F8F8F8',
+    padding: 4,
+    borderRadius: 4,
+    fontFamily: 'monospace',
+    fontSize: 14,
+  },
+  fence: {
+    backgroundColor: '#F8F8F8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    fontFamily: 'monospace',
+    fontSize: 14,
+  },
+  blockquote: {
+    backgroundColor: '#F5F5DC',
+    borderLeftWidth: 4,
+    borderLeftColor: '#8B4513',
+    paddingLeft: 16,
+    paddingVertical: 8,
+    marginBottom: 16,
+    fontStyle: 'italic' as const,
+  },
+};
 
 const styles = StyleSheet.create({
   container: {

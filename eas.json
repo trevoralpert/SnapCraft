@@ -11,11 +11,10 @@
       },
       "channel": "development",
       "ios": {
-        "resourceClass": "m-medium",
-        "bundleIdentifier": "com.snapcraft.dev"
+        "resourceClass": "m-medium"
       },
       "android": {
-        "package": "com.snapcraft.dev"
+        "resourceClass": "medium"
       }
     },
     "staging": {
@@ -25,11 +24,10 @@
       },
       "channel": "staging",
       "ios": {
-        "bundleIdentifier": "com.snapcraft.staging",
         "resourceClass": "m-medium"
       },
       "android": {
-        "package": "com.snapcraft.staging"
+        "resourceClass": "medium"
       }
     },
     "preview": {
@@ -45,11 +43,10 @@
       },
       "channel": "production",
       "ios": {
-        "bundleIdentifier": "com.snapcraft.app",
         "resourceClass": "m-medium"
       },
       "android": {
-        "package": "com.snapcraft.app"
+        "resourceClass": "medium"
       }
     }
   },
