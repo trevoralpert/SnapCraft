@@ -886,4 +886,40 @@ CURRENT PRIORITY ITEMS (IMMEDIATE FOCUS)
   ⏳ Phase 5: Analysis Storage & History - Multi-analysis photo capability
   ⏳ Phase 6: User Preferences - Customizable vision mode settings
 
-// ... existing code ... 
+### PHASE 2: Camera Enhancement ✅ (COMPLETED)
+- ✅ Add vision mode selector UI component
+- ✅ Create VisionModeSelector component with mobile-optimized dropdown
+- ✅ Add vision toggle to camera controls  
+- ✅ Enhanced vertical dropdown with craft-themed design
+- ✅ Fixed text layout and spacing issues
+- ✅ Fixed z-index layering for proper modal behavior
+- ✅ Debug dropdown trigger functionality 
+- ✅ Fixed dropdown state management and rendering logic
+- ✅ Moved dropdown to top-level for proper layering above all UI elements
+- ✅ Fixed dropdown boundary clipping issues with scrolling solution
+- ✅ Restored Coming Soon section (Assess Skill, Safety Check)
+  ✅ Implemented scrolling solution for content overflow
+    - Added ScrollView wrapper with proper configuration
+    - Set maxHeight: 400px to prevent screen overflow
+    - Configured smooth scrolling with no bounce effect
+    - Hidden scroll indicators for clean UI
+    - Added proper content padding (top: 16px, bottom: 24px)
+    - Maintained all existing styling and functionality
+    - Ensured Coming Soon section remains fully accessible
+
+**Implementation Notes:**
+- ✅ VisionDropdownSelector: Enhanced vertical dropdown with craft-themed design
+- ✅ Compact toggle button showing current mode icon and name
+- ✅ Smooth slide-down animation (200ms) with opacity fade
+- ✅ Outside press detection for closing dropdown
+- ✅ Available modes section with selection indicators
+- ✅ Coming Soon section for disabled modes
+- ✅ Feature flags: Controlled by EnvironmentService.enableVisionModes
+- ✅ Backwards compatible: All new props optional, existing functionality unchanged
+
+**UI Improvements Applied:**
+- 🎨 Mobile-optimized vertical layout vs. horizontal scroll
+- 🎨 Compact button with mode icon indicator
+- 🎨 Craft-themed color coding and badges
+- 🎨 Professional dropdown with sections and visual hierarchy
+- 🎨 Smooth animations and intuitive interactions 

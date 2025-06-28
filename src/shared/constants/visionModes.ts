@@ -5,7 +5,7 @@ export const VISION_MODES: VisionModeConfig[] = [
     id: VisionMode.ANALYZE_PROJECT,
     name: 'Analyze Project',
     icon: 'construct',
-    description: 'Get comprehensive feedback on your craft project',
+    description: 'Get detailed feedback on your craft work',
     color: '#8B4513',
     isAvailable: true,
     badge: 'POPULAR',
@@ -29,7 +29,7 @@ export const VISION_MODES: VisionModeConfig[] = [
     id: VisionMode.IDENTIFY_TOOLS,
     name: 'Identify Tools',
     icon: 'hammer',
-    description: 'Recognize and learn about tools in your photo',
+    description: 'Recognize tools and learn their uses',
     color: '#CD853F',
     isAvailable: true,
     badge: 'NEW',
@@ -54,7 +54,7 @@ export const VISION_MODES: VisionModeConfig[] = [
     id: VisionMode.REVERSE_ENGINEER,
     name: 'Reverse Engineer',
     icon: 'cog',
-    description: 'Learn how to recreate this project step-by-step',
+    description: 'Learn how to recreate this project',
     color: '#A0522D',
     isAvailable: true,
     badge: 'BETA',
@@ -79,7 +79,7 @@ export const VISION_MODES: VisionModeConfig[] = [
     id: VisionMode.ASSESS_SKILL,
     name: 'Assess Skill',
     icon: 'school',
-    description: 'Get feedback on your technique and skill level',
+    description: 'Get feedback on your technique level',
     color: '#8FBC8F',
     isAvailable: false, // Coming soon
     badge: 'COMING SOON',
@@ -104,7 +104,7 @@ export const VISION_MODES: VisionModeConfig[] = [
     id: VisionMode.SAFETY_CHECK,
     name: 'Safety Check',
     icon: 'shield-checkmark',
-    description: 'Identify safety concerns and best practices',
+    description: 'Identify safety concerns and risks',
     color: '#DC143C',
     isAvailable: false, // Coming soon
     badge: 'COMING SOON',
@@ -134,6 +134,10 @@ export const getVisionModeConfig = (mode: VisionMode): VisionModeConfig | undefi
 
 export const getAvailableVisionModes = (): VisionModeConfig[] => {
   return VISION_MODES.filter(config => config.isAvailable);
+};
+
+export const getComingSoonVisionModes = (): VisionModeConfig[] => {
+  return VISION_MODES.filter(config => !config.isAvailable);
 };
 
 export const getVisionModesByAvailability = (includeComingSoon: boolean = false): VisionModeConfig[] => {

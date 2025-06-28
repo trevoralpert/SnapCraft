@@ -20,7 +20,7 @@ import { useTheme } from '@/src/shared/contexts/ThemeContext';
 import { VisionMode, VisionCameraProps } from '@/src/shared/types/vision';
 import { getDefaultVisionMode, getVisionModeConfig } from '@/src/shared/constants/visionModes';
 import EnvironmentService from '@/src/shared/services/EnvironmentService';
-import VisionModeSelector from './VisionModeSelector';
+import VisionDropdownSelector from './VisionDropdownSelector';
 import VisionToggleButton from './VisionToggleButton';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -61,11 +61,11 @@ export default function CameraScreen({
   const [mode, setMode] = useState<'picture' | 'video'>('picture');
   
   // Vision mode state
-  const [isVisionMode, setIsVisionMode] = useState(false);
+  const [isVisionMode, setIsVisionMode] = useState(initialVisionMode || false);
   const [currentVisionMode, setCurrentVisionMode] = useState<VisionMode>(
-    initialVisionMode || getDefaultVisionMode()
+    initialVisionMode || VisionMode.ANALYZE_PROJECT
   );
-  const [showVisionSelector, setShowVisionSelector] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // Camera ref
   const cameraRef = useRef<CameraView>(null);
@@ -136,27 +136,44 @@ export default function CameraScreen({
 
   // Vision mode handlers
   const toggleVisionMode = () => {
-    const newVisionMode = !isVisionMode;
-    setIsVisionMode(newVisionMode);
+    console.log('🔍 Vision toggle pressed:', { 
+      currentIsVisionMode: isVisionMode, 
+      currentDropdownOpen: isDropdownOpen,
+      currentVisionMode: currentVisionMode 
+    });
     
-    if (newVisionMode) {
-      setShowVisionSelector(true);
+    if (!isVisionMode) {
+      console.log('🔍 Enabling vision mode and opening dropdown');
+      setIsVisionMode(true);
+      setIsDropdownOpen(true); // Open dropdown when enabling vision mode
     } else {
-      setShowVisionSelector(false);
+      console.log('🔍 Toggling dropdown:', !isDropdownOpen);
+      setIsDropdownOpen(!isDropdownOpen); // Toggle dropdown when already in vision mode
     }
-    
-    onModeChange?.(newVisionMode ? currentVisionMode : undefined as any);
   };
 
   const handleVisionModeSelect = (mode: VisionMode) => {
     setCurrentVisionMode(mode);
-    setShowVisionSelector(false);
+    setIsDropdownOpen(false); // Close dropdown after selection
+    if (!isVisionMode) {
+      setIsVisionMode(true); // Enable vision mode if not already enabled
+    }
     onModeChange?.(mode);
   };
 
-  const handleVisionSelectorToggle = () => {
-    if (isVisionMode) {
-      setShowVisionSelector(!showVisionSelector);
+  // Helper for getting current mode config
+  const currentModeConfig = getVisionModeConfig(currentVisionMode);
+
+  // Helper for getting mode icons
+  const getModeIcon = (mode: VisionMode): keyof typeof Ionicons.glyphMap => {
+    const config = getVisionModeConfig(mode);
+    switch (config?.icon) {
+      case 'construct': return 'construct';
+      case 'hammer': return 'hammer';
+      case 'cog': return 'cog';
+      case 'school': return 'school';
+      case 'shield-checkmark': return 'shield-checkmark';
+      default: return 'eye';
     }
   };
 
@@ -345,12 +362,58 @@ export default function CameraScreen({
       <View style={styles.headerControls}>
         {/* Vision Toggle Button - Left side */}
         {visionModesEnabled && (
-          <TouchableOpacity onPress={handleVisionSelectorToggle}>
-            <VisionToggleButton
-              isVisionMode={isVisionMode}
-              currentVisionMode={currentVisionMode}
-              onToggle={toggleVisionMode}
-            />
+          <TouchableOpacity 
+            style={[
+              styles.visionToggleButton,
+              isVisionMode && styles.activeVisionToggleButton,
+              isVisionMode && currentModeConfig && { borderColor: currentModeConfig.color }
+            ]}
+            onPress={toggleVisionMode}
+            activeOpacity={0.8}
+          >
+            <View style={styles.visionButtonContent}>
+              {/* Mode Icon */}
+              <View style={[
+                styles.visionModeIconContainer,
+                isVisionMode && currentModeConfig && { backgroundColor: currentModeConfig.color + '20' }
+              ]}>
+                <Ionicons 
+                  name={isVisionMode ? getModeIcon(currentVisionMode) : "eye-off"} 
+                  size={16} 
+                  color={isVisionMode && currentModeConfig ? currentModeConfig.color : 'white'} 
+                />
+              </View>
+              
+              {/* Button Text */}
+              <View style={styles.visionTextContainer}>
+                <Text style={[
+                  styles.visionButtonTitle,
+                  isVisionMode && currentModeConfig && { color: currentModeConfig.color }
+                ]}>
+                  {isVisionMode ? 'Vision' : 'Camera'}
+                </Text>
+                {isVisionMode && currentModeConfig && (
+                  <Text style={styles.visionButtonSubtitle} numberOfLines={1}>
+                    {currentModeConfig.name}
+                  </Text>
+                )}
+              </View>
+              
+              {/* Dropdown Arrow */}
+              <Ionicons 
+                name="chevron-down" 
+                size={14} 
+                color={isVisionMode && currentModeConfig ? currentModeConfig.color : 'white'} 
+              />
+            </View>
+            
+            {/* Active Indicator Dot */}
+            {isVisionMode && (
+              <View style={[
+                styles.visionActiveDot,
+                { backgroundColor: currentModeConfig?.color || '#8B4513' }
+              ]} />
+            )}
           </TouchableOpacity>
         )}
         
@@ -364,17 +427,6 @@ export default function CameraScreen({
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Vision Mode Selector - Positioned below header */}
-      {visionModesEnabled && (
-        <View style={styles.visionSelectorContainer}>
-          <VisionModeSelector
-            selectedMode={currentVisionMode}
-            onModeSelect={handleVisionModeSelect}
-            isVisible={showVisionSelector}
-          />
-        </View>
-      )}
 
       {/* Recording Indicator - Absolute positioned */}
       {isRecording && (
@@ -540,6 +592,18 @@ export default function CameraScreen({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Vision Mode Dropdown - Top Level for Proper Layering */}
+      {visionModesEnabled && (
+        <VisionDropdownSelector
+          selectedMode={currentVisionMode}
+          onModeSelect={handleVisionModeSelect}
+          isVisionMode={isVisionMode}
+          onToggle={toggleVisionMode}
+          isDropdownOpen={isDropdownOpen}
+          onDropdownToggle={(open: boolean) => setIsDropdownOpen(open)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -762,5 +826,50 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+  },
+  visionToggleButton: {
+    width: 120,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeVisionToggleButton: {
+    borderColor: '#FF4500',
+  },
+  visionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  visionModeIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  visionTextContainer: {
+    flex: 1,
+  },
+  visionButtonTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  visionButtonSubtitle: {
+    fontSize: 12,
+    color: 'white',
+    opacity: 0.8,
+  },
+  visionActiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'white',
+    position: 'absolute',
+    right: 8,
+    top: 18,
   },
 }); 

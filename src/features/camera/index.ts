@@ -2,8 +2,7 @@
 export { default as CameraScreen } from './CameraScreen';
 export { default as MediaGallery } from './MediaGallery';
 export { default as VideoPlayer } from './VideoPlayer';
-export { default as VisionModeSelector } from './VisionModeSelector';
-export { default as VisionToggleButton } from './VisionToggleButton';
+export { default as VisionDropdownSelector } from './VisionDropdownSelector';
 
 // Types
 export interface MediaItem {
