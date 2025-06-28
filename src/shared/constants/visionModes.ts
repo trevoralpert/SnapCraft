@@ -56,8 +56,8 @@ export const VISION_MODES: VisionModeConfig[] = [
     icon: 'cog',
     description: 'Learn how to recreate this project',
     color: '#A0522D',
-    isAvailable: true,
-    badge: 'BETA',
+    isAvailable: false, // Coming soon
+    badge: 'COMING SOON',
     promptTemplate: `Analyze this finished project and reverse engineer the creation process. Provide:
     - Step-by-step recreation instructions
     - Required tools and materials for each step

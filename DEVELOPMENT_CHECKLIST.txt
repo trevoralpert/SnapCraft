@@ -844,8 +844,8 @@ NOTES & DECISIONS
       - Defined mode-specific analysis interfaces (ProjectAnalysis, ToolAnalysis, ReverseEngineerAnalysis, SkillAssessment, SafetyAnalysis)
       - Created vision mode configurations with specialized prompts and quick questions
       - 5 vision modes defined: Analyze Project, Identify Tools, Reverse Engineer, Assess Skill, Safety Check
-      - 3 modes available immediately (Analyze Project, Identify Tools, Reverse Engineer)
-      - 2 advanced modes planned for later rollout (Assess Skill, Safety Check)
+      - 2 modes available immediately (Analyze Project, Identify Tools)
+      - 3 advanced modes planned for later rollout (Reverse Engineer, Assess Skill, Safety Check)
       - Added environment-based feature flags for vision mode rollout control
       - Extended CameraScreen props to support vision modes (backwards compatible)
       - Helper functions for vision mode management and configuration
@@ -898,6 +898,7 @@ CURRENT PRIORITY ITEMS (IMMEDIATE FOCUS)
 - ✅ Moved dropdown to top-level for proper layering above all UI elements
 - ✅ Fixed dropdown boundary clipping issues with scrolling solution
 - ✅ Restored Coming Soon section (Assess Skill, Safety Check)
+- ✅ Moved Reverse Engineer to Coming Soon section (no actual implementation yet)
   ✅ Implemented scrolling solution for content overflow
     - Added ScrollView wrapper with proper configuration
     - Set maxHeight: 400px to prevent screen overflow
