@@ -274,18 +274,38 @@ function AddToolModal({ visible, onClose, onAddTool }: AddToolModalProps) {
 export default function ToolInventoryScreen() {
   const { user } = useAuthStore();
   const [tools, setTools] = useState(MOCK_TOOLS);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'lastUsed'>('name');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+
+  const handleAddTool = (newTool: any) => {
+    setTools(prevTools => [...prevTools, newTool]);
+  };
+
+  const getConditionColor = (condition: string): string => {
+    const conditionObj = TOOL_CONDITIONS.find(c => c.id === condition);
+    return conditionObj?.color || '#666';
+  };
+
+  const getCategoryEmoji = (categoryId: string): string => {
+    const category = TOOL_CATEGORIES.find(c => c.id === categoryId);
+    return category?.emoji || '🛠️';
+  };
+
+  const formatPrice = (price: number): string => {
+    return price > 0 ? `$${price.toFixed(2)}` : '';
+  };
 
   // Filter and sort tools
   const filteredTools = tools
     .filter(tool => {
-      const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory;
       const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           tool.brand.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
+                          tool.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          tool.model.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory;
+      return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -299,25 +319,6 @@ export default function ToolInventoryScreen() {
           return 0;
       }
     });
-
-  const handleAddTool = (newTool: any) => {
-    setTools([...tools, newTool]);
-    console.log('🔧 New tool added:', newTool);
-  };
-
-  const getConditionColor = (condition: string): string => {
-    const conditionObj = TOOL_CONDITIONS.find(c => c.id === condition);
-    return conditionObj?.color || '#999';
-  };
-
-  const getCategoryEmoji = (categoryId: string): string => {
-    const category = TOOL_CATEGORIES.find(c => c.id === categoryId);
-    return category?.emoji || '🛠️';
-  };
-
-  const formatPrice = (price: number): string => {
-    return price > 0 ? `$${price.toFixed(2)}` : 'N/A';
-  };
 
   const renderToolItem = ({ item }: { item: typeof MOCK_TOOLS[0] }) => (
     <View style={styles.toolCard}>
@@ -441,37 +442,56 @@ export default function ToolInventoryScreen() {
       {/* Category Filter */}
       <View style={styles.categoryFilterContainer}>
         <TouchableOpacity
-          style={[styles.filterButton, selectedCategory === 'all' && styles.filterButtonActive]}
-          onPress={() => setSelectedCategory('all')}
+          style={styles.filterHeader}
+          onPress={() => setFiltersCollapsed(!filtersCollapsed)}
         >
-          <Text style={[
-            styles.filterButtonText,
-            selectedCategory === 'all' && styles.filterButtonTextActive
-          ]}>
-            All ({tools.length})
-          </Text>
+          <View style={styles.filterHeaderLeft}>
+            <Text style={styles.filterHeaderTitle}>Filter by Category</Text>
+            <Text style={styles.filterHeaderCount}>({TOOL_CATEGORIES.length + 1} options)</Text>
+          </View>
+          <Ionicons
+            name={filtersCollapsed ? "chevron-down" : "chevron-up"}
+            size={20}
+            color="#8B4513"
+          />
         </TouchableOpacity>
-        {TOOL_CATEGORIES.map((category) => {
-          const count = tools.filter(tool => tool.category === category.id).length;
-          return (
+
+        {!filtersCollapsed && (
+          <View style={styles.filterButtons}>
             <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.filterButton,
-                selectedCategory === category.id && styles.filterButtonActive
-              ]}
-              onPress={() => setSelectedCategory(category.id)}
+              style={[styles.filterButton, selectedCategory === 'all' && styles.filterButtonActive]}
+              onPress={() => setSelectedCategory('all')}
             >
-              <Text style={styles.filterEmoji}>{category.emoji}</Text>
               <Text style={[
                 styles.filterButtonText,
-                selectedCategory === category.id && styles.filterButtonTextActive
+                selectedCategory === 'all' && styles.filterButtonTextActive
               ]}>
-                {category.label} ({count})
+                All ({tools.length})
               </Text>
             </TouchableOpacity>
-          );
-        })}
+            {TOOL_CATEGORIES.map((category) => {
+              const count = tools.filter(tool => tool.category === category.id).length;
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[
+                    styles.filterButton,
+                    selectedCategory === category.id && styles.filterButtonActive
+                  ]}
+                  onPress={() => setSelectedCategory(category.id)}
+                >
+                  <Text style={styles.filterEmoji}>{category.emoji}</Text>
+                  <Text style={[
+                    styles.filterButtonText,
+                    selectedCategory === category.id && styles.filterButtonTextActive
+                  ]}>
+                    {category.label} ({count})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* Tools List */}
@@ -583,6 +603,34 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 8,
+  },
+  filterHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginRight: 8,
+  },
+  filterHeaderCount: {
+    fontSize: 12,
+    color: '#999',
+  },
+  filterButtons: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   filterButton: {
     flexDirection: 'row',

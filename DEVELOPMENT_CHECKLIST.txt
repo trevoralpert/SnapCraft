@@ -97,6 +97,18 @@ Last Updated: June 27, 2025 - 7:35 PM
         * Photo analysis results now display proper heading hierarchy (### Analysis:)
         * Consistent craft-themed formatting across all AI-powered features
         * Both Smart Craft Assistant and Photo Analysis now have professional text formatting
+      - KNOWLEDGE HUB SCROLLING: Added scrolling capability to Knowledge tab (June 28, 2025)
+        * Added ScrollView wrapper to Knowledge Hub main page
+        * Fixed potential content cutoff on smaller screens or future content additions
+        * Smooth scrolling with hidden scroll indicators for clean UI
+        * Ensures all knowledge features remain accessible regardless of screen size
+      - COLLAPSIBLE CATEGORY FILTERS: Enhanced Tools page with collapsible filter section (June 28, 2025)
+        * Made the category filter section collapsible to save screen space
+        * Users can collapse/expand the "Filter by Category" section when not needed
+        * Added toggle state management with chevron indicators (up/down)
+        * Filter header shows "Filter by Category" with option count
+        * Improved space efficiency while maintaining easy access to all filters
+        * Maintains all existing functionality (search, sort, add tools, individual tool display)
 
 ✅ MAJOR UI IMPROVEMENT: Custom Alert System Implementation
   - Removed debug/nuisance alerts (login success, photo capture success)

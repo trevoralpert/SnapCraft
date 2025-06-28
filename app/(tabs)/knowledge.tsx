@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { KnowledgeBaseScreen, SmartCraftAssistant, PhotoAnalysisScreen } from '../../src/features/knowledge';
@@ -30,7 +30,8 @@ export default function KnowledgeTab() {
         <Text style={styles.subtitle}>AI-powered learning and guidance</Text>
       </View>
 
-      <View style={styles.featuresContainer}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.featuresContainer}>
         {/* Smart Craft Assistant */}
         <TouchableOpacity
           style={[styles.featureCard, styles.primaryFeature]}
@@ -106,7 +107,8 @@ export default function KnowledgeTab() {
             your inventory and get personalized recommendations.
           </Text>
         </View>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -115,6 +117,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5DC',
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     padding: 20,
