@@ -10,11 +10,15 @@ import {
   Image,
   ActivityIndicator,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { User, CraftSpecialization, SkillLevel } from '../../shared/types';
 import { CraftButton } from '../../shared/components/CraftButton';
+import { SkillLevelBadge } from '../../shared/components';
+import { UserSkillLevelService } from '../../services/scoring/UserSkillLevelService';
 import { AuthService } from '../../services/firebase/auth';
+import ScoringHistoryScreen from './ScoringHistoryScreen';
 
 const craftSpecializations: { key: CraftSpecialization; label: string; emoji: string }[] = [
   { key: 'woodworking', label: 'Woodworking', emoji: '🪵' },
@@ -51,6 +55,13 @@ export function ProfileScreen() {
   }, [user, isAuthenticated]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showScoringHistory, setShowScoringHistory] = useState(false);
+  const [calculatedSkillLevel, setCalculatedSkillLevel] = useState<{
+    skillLevel: SkillLevel;
+    averageScore: number;
+    projectCount: number;
+    confidence: number;
+  } | null>(null);
   const [formData, setFormData] = useState({
     displayName: '',
     bio: '',
@@ -69,6 +80,32 @@ export function ProfileScreen() {
         skillLevel: user.skillLevel || 'novice',
       });
     }
+  }, [user]);
+
+  // Fetch calculated skill level
+  useEffect(() => {
+    const fetchSkillLevel = async () => {
+      if (!user) return;
+      
+      try {
+        console.log('📊 Fetching calculated skill level for user:', user.id);
+        const skillLevelService = UserSkillLevelService.getInstance();
+        const skillData = await skillLevelService.calculateUserSkillLevel(user.id);
+        setCalculatedSkillLevel(skillData);
+        console.log('✅ Skill level fetched:', skillData);
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch skill level:', error);
+        // Fallback to user's manual skill level
+        setCalculatedSkillLevel({
+          skillLevel: user.skillLevel || 'novice',
+          averageScore: 0,
+          projectCount: 0,
+          confidence: 0
+        });
+      }
+    };
+
+    fetchSkillLevel();
   }, [user]);
 
   const handleSave = async () => {
@@ -149,8 +186,6 @@ export function ProfileScreen() {
     }));
   };
 
-
-
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -176,6 +211,22 @@ export function ProfileScreen() {
           <Text style={styles.joinedDate}>
             Joined {user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'Recently'}
           </Text>
+          
+          {/* Calculated Skill Level Badge */}
+          {calculatedSkillLevel && (
+            <View style={styles.skillBadgeContainer}>
+              <SkillLevelBadge
+                skillLevel={calculatedSkillLevel.skillLevel}
+                averageScore={calculatedSkillLevel.averageScore}
+                showProgress={true}
+                size="large"
+                onPress={() => {
+                  // Open scoring history modal
+                  setShowScoringHistory(true);
+                }}
+              />
+            </View>
+          )}
         </View>
 
         {/* Profile Information */}
@@ -425,10 +476,17 @@ export function ProfileScreen() {
           </Text>
         </View>
 
-
-
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Scoring History Modal */}
+      <Modal
+        visible={showScoringHistory}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <ScoringHistoryScreen onClose={() => setShowScoringHistory(false)} />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -717,5 +775,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  skillBadgeContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#FFF8DC',
+    borderRadius: 8,
   },
 }); 

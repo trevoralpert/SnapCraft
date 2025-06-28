@@ -31,6 +31,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { uploadMultipleImages, generatePostImagePath } from '../../services/firebase/storage';
 import { createPost } from '../../services/firebase/posts';
 import { CraftPost } from '../../shared/types';
+import { UserSkillLevelService } from '../../services/scoring/UserSkillLevelService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -428,6 +429,23 @@ export default function CameraScreen({
       console.log('💾 Saving post to Firestore...');
       const postId = await createPost(postData);
       console.log('✅ Craft post created successfully:', postId);
+
+      // Update user skill level after post creation
+      try {
+        console.log('🧠 Updating user skill level...');
+        const skillLevelService = UserSkillLevelService.getInstance();
+        const skillUpdate = await skillLevelService.updateUserSkillLevel(user.id, postId);
+        
+        if (skillUpdate.levelChanged) {
+          console.log(`🎉 SKILL LEVEL UP! ${skillUpdate.oldLevel} → ${skillUpdate.newLevel}`);
+          // TODO: Show skill level up notification
+        }
+        
+        console.log(`📊 Current skill level: ${skillUpdate.newLevel} (avg: ${Math.round(skillUpdate.averageScore)})`);
+      } catch (skillError) {
+        console.warn('⚠️ Skill level update failed:', skillError);
+        // Don't fail the post creation if skill update fails
+      }
 
       // Show custom success dialog
       setShowSuccessDialog(true);

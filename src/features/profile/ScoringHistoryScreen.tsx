@@ -7,12 +7,15 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
-import { CraftPost } from '../../shared/types';
+import { CraftPost, SkillLevel, SkillProgressionEntry } from '../../shared/types';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
+import { SkillLevelBadge, SkillProgressionHistory } from '../../shared/components';
+import { UserSkillLevelService } from '../../services/scoring/UserSkillLevelService';
 
 interface ScoringHistoryScreenProps {
   onClose?: () => void;
@@ -29,132 +32,63 @@ interface ProjectScore {
   description: string;
 }
 
-export function ScoringHistoryScreen({ onClose }: ScoringHistoryScreenProps) {
+export default function ScoringHistoryScreen({ onClose }: ScoringHistoryScreenProps = {}) {
   const { user } = useAuthStore();
-  const [projectScores, setProjectScores] = useState<ProjectScore[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [averageScore, setAverageScore] = useState<number>(0);
-  const [totalProjects, setTotalProjects] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [skillData, setSkillData] = useState<{
+    skillLevel: SkillLevel;
+    averageScore: number;
+    projectCount: number;
+    confidence: number;
+    progressionHistory: SkillProgressionEntry[];
+  } | null>(null);
 
   useEffect(() => {
-    if (user) {
-      loadScoringHistory();
-    }
-  }, [user]);
+    const fetchSkillData = async () => {
+      if (!user) return;
 
-  const loadScoringHistory = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      console.log('📊 Loading scoring history for user:', user.id);
-
-      // Query user's posts with scoring data
-      const postsRef = collection(db, 'posts');
-      const q = query(
-        postsRef,
-        where('userId', '==', user.id),
-        orderBy('createdAt', 'desc'),
-        limit(50)
-      );
-
-      const snapshot = await getDocs(q);
-      const scores: ProjectScore[] = [];
-
-      snapshot.forEach((doc) => {
-        const post = doc.data() as CraftPost;
-        if (post.scoring) {
-          scores.push({
-            id: doc.id,
-            craftType: post.craftType,
-            score: post.scoring.individualSkillScore,
-            skillLevel: post.scoring.skillLevelCategory,
-            confidence: Math.round(post.scoring.aiScoringMetadata.confidence * 100),
-            needsReview: post.scoring.aiScoringMetadata.reviewRequired,
-            scoredAt: post.scoring.aiScoringMetadata.scoredAt,
-            description: post.content.description.substring(0, 100) + '...'
-          });
-        }
-      });
-
-      setProjectScores(scores);
-      setTotalProjects(scores.length);
-
-      // Calculate average score
-      if (scores.length > 0) {
-        const avg = scores.reduce((sum, score) => sum + score.score, 0) / scores.length;
-        setAverageScore(Math.round(avg));
+      try {
+        console.log('📊 Fetching complete skill data for user:', user.id);
+        const skillLevelService = UserSkillLevelService.getInstance();
+        const data = await skillLevelService.calculateUserSkillLevel(user.id);
+        setSkillData(data);
+        console.log('✅ Complete skill data fetched:', data);
+      } catch (error) {
+        console.error('❌ Failed to fetch skill data:', error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      console.log('📊 Loaded', scores.length, 'scored projects');
-    } catch (error) {
-      console.error('❌ Error loading scoring history:', error);
-      Alert.alert('Error', 'Failed to load scoring history');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getSkillLevelColor = (skillLevel: string): string => {
-    switch (skillLevel) {
-      case 'novice': return '#4CAF50';
-      case 'apprentice': return '#2196F3';
-      case 'journeyman': return '#FF9800';
-      case 'craftsman': return '#9C27B0';
-      case 'master': return '#F44336';
-      default: return '#757575';
-    }
-  };
-
-  const getScoreColor = (score: number): string => {
-    if (score >= 90) return '#4CAF50';
-    if (score >= 80) return '#8BC34A';
-    if (score >= 70) return '#FFC107';
-    if (score >= 60) return '#FF9800';
-    return '#F44336';
-  };
-
-  const renderScoreCard = (projectScore: ProjectScore) => (
-    <View key={projectScore.id} style={styles.scoreCard}>
-      <View style={styles.scoreHeader}>
-        <View style={styles.scoreInfo}>
-          <Text style={[styles.scoreValue, { color: getScoreColor(projectScore.score) }]}>
-            {projectScore.score}/100
-          </Text>
-          <Text style={styles.craftType}>{projectScore.craftType}</Text>
-        </View>
-        <View style={styles.skillBadge}>
-          <Text style={[styles.skillLevel, { color: getSkillLevelColor(projectScore.skillLevel) }]}>
-            {projectScore.skillLevel.charAt(0).toUpperCase() + projectScore.skillLevel.slice(1)}
-          </Text>
-        </View>
-      </View>
-      
-      <Text style={styles.description}>{projectScore.description}</Text>
-      
-      <View style={styles.scoreFooter}>
-        <View style={styles.confidenceContainer}>
-          <Ionicons name="analytics" size={14} color="#666" />
-          <Text style={styles.confidence}>{projectScore.confidence}% confidence</Text>
-        </View>
-        {projectScore.needsReview && (
-          <View style={styles.reviewFlag}>
-            <Ionicons name="flag" size={14} color="#FF9800" />
-            <Text style={styles.reviewText}>Review Required</Text>
-          </View>
-        )}
-        <Text style={styles.scoredDate}>
-          {new Date(projectScore.scoredAt).toLocaleDateString()}
-        </Text>
-      </View>
-    </View>
-  );
+    fetchSkillData();
+  }, [user]);
 
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Please log in to view scoring history</Text>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Please log in to view your scoring history</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#8B4513" />
+          <Text style={styles.loadingText}>Loading your skill progression...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!skillData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Failed to load skill data</Text>
         </View>
       </SafeAreaView>
     );
@@ -164,55 +98,69 @@ export function ScoringHistoryScreen({ onClose }: ScoringHistoryScreenProps) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="arrow-back" size={24} color="#8B4513" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scoring History</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>🎯 Skill Progression</Text>
+          <Text style={styles.headerSubtitle}>
+            Track your craft journey and skill development
+          </Text>
+        </View>
       </View>
 
-      {/* Stats Summary */}
+      {/* Current Stats Overview */}
       <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{totalProjects}</Text>
-          <Text style={styles.statLabel}>Projects Scored</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{skillData.projectCount}</Text>
+          <Text style={styles.statLabel}>Projects</Text>
         </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: getScoreColor(averageScore) }]}>
-            {averageScore}/100
-          </Text>
-          <Text style={styles.statLabel}>Average Score</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{Math.round(skillData.averageScore)}</Text>
+          <Text style={styles.statLabel}>Avg Score</Text>
         </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>
-            {user.scoring?.calculatedSkillLevel?.charAt(0).toUpperCase() + 
-             (user.scoring?.calculatedSkillLevel?.slice(1) || 'pending')}
-          </Text>
-          <Text style={styles.statLabel}>Current Level</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{Math.round(skillData.confidence * 100)}%</Text>
+          <Text style={styles.statLabel}>Confidence</Text>
         </View>
       </View>
 
-      {/* Scoring History */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading scoring history...</Text>
-          </View>
-        ) : projectScores.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="analytics" size={48} color="#CCC" />
-            <Text style={styles.emptyTitle}>No Scored Projects Yet</Text>
-            <Text style={styles.emptyText}>
-              Create and share craft projects to see your AI scoring history here.
+      {/* Skill Progression History */}
+      <View style={styles.progressionContainer}>
+        <SkillProgressionHistory
+          progressionHistory={skillData.progressionHistory}
+          currentLevel={skillData.skillLevel}
+          currentScore={skillData.averageScore}
+        />
+      </View>
+
+      {/* Tips Section */}
+      <View style={styles.tipsContainer}>
+        <Text style={styles.tipsTitle}>💡 Tips to Improve Your Skill Level</Text>
+        <View style={styles.tipsList}>
+          <View style={styles.tipItem}>
+            <Ionicons name="camera" size={20} color="#8B4513" />
+            <Text style={styles.tipText}>
+              Document your process with clear photos at each step
             </Text>
           </View>
-        ) : (
-          <View style={styles.scoresContainer}>
-            <Text style={styles.sectionTitle}>Recent Project Scores</Text>
-            {projectScores.map(renderScoreCard)}
+          <View style={styles.tipItem}>
+            <Ionicons name="list" size={20} color="#8B4513" />
+            <Text style={styles.tipText}>
+              Include detailed material lists and tool information
+            </Text>
           </View>
-        )}
-      </ScrollView>
+          <View style={styles.tipItem}>
+            <Ionicons name="time" size={20} color="#8B4513" />
+            <Text style={styles.tipText}>
+              Track time spent and note any challenges faced
+            </Text>
+          </View>
+          <View style={styles.tipItem}>
+            <Ionicons name="shield-checkmark" size={20} color="#8B4513" />
+            <Text style={styles.tipText}>
+              Always follow safety guidelines and best practices
+            </Text>
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -222,178 +170,103 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5DC',
   },
-  header: {
-    flexDirection: 'row',
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    backgroundColor: 'white',
+    padding: 20,
   },
-  closeButton: {
-    padding: 5,
+  header: {
+    backgroundColor: '#8B4513',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  headerContent: {
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#8B4513',
+    color: 'white',
+    marginBottom: 8,
   },
-  headerSpacer: {
-    width: 34,
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#F5DEB3',
+    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: 'white',
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: -12,
     borderRadius: 12,
-    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  statItem: {
+  statCard: {
     flex: 1,
     alignItems: 'center',
   },
-  statValue: {
+  statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#8B4513',
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
-    marginTop: 4,
   },
-  content: {
+  progressionContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    marginTop: 16,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  tipsContainer: {
+    backgroundColor: 'white',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tipsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 12,
+  },
+  tipsList: {
+    gap: 12,
+  },
+  tipItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 50,
+    gap: 12,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#654321',
+    lineHeight: 20,
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 50,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
     color: '#8B4513',
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 40,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 12,
   },
   errorText: {
     fontSize: 16,
     color: '#8B4513',
-    fontWeight: '500',
-  },
-  scoresContainer: {
-    paddingTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B4513',
-    marginBottom: 16,
-  },
-  scoreCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  scoreHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  scoreInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  scoreValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginRight: 12,
-  },
-  craftType: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  skillBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 6,
-  },
-  skillLevel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  description: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  scoreFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  confidenceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  confidence: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-  },
-  reviewFlag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  reviewText: {
-    fontSize: 12,
-    color: '#FF9800',
-    marginLeft: 4,
-  },
-  scoredDate: {
-    fontSize: 12,
-    color: '#999',
+    textAlign: 'center',
   },
 }); 

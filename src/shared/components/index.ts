@@ -7,6 +7,10 @@ export { StoryAnalyticsDashboard } from './StoryAnalyticsDashboard';
 export { default as CraftAlert } from './CraftAlert';
 export { default as CraftToast } from './CraftToast';
 
+// Skill Level Components
+export { default as SkillLevelBadge } from './SkillLevelBadge';
+export { default as SkillProgressionHistory } from './SkillProgressionHistory';
+
 // Existing components
 export { CraftButton } from './CraftButton';
 export { LogoutButton } from './LogoutButton';
