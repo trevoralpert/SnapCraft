@@ -1,0 +1,276 @@
+=================================================================
+SNAPCRAFT DEVELOPMENT SPRINT - JUNE 28, 2025
+=================================================================
+Last Updated: June 28, 2025
+Focus: Project Scoring System, Social Features, Onboarding & UI Polish
+
+OVERVIEW:
+This sprint follows an optimized dependency flow to minimize risk and rework:
+- All users start equal (no Creator/Viewer distinction)
+- Projects are AI-scored based on documentation quality and craft execution
+- User skill levels are determined by average project scores
+- Enhanced social features encourage community engagement
+- Streamlined onboarding and UI improvements
+
+PHASE ORDER OPTIMIZED FOR:
+- Foundation-first approach (data models and core integrations)
+- Preventing camera workflow conflicts
+- Building onboarding on stable features
+- Minimizing integration rework
+
+=================================================================
+PHASE 1: TOOL INTEGRATION & DATA MODELS (FOUNDATION)
+=================================================================
+
+🎯 CORE CONCEPT: Stable Foundation - Data Models & Vision AI Integration
+
+⏳ 1.1 Reset Tool Inventory System
+    - Modify user onboarding to start with empty tool inventory
+    - Update existing tool inventory UI to handle empty state
+    - Add "Get Started" prompts directing users to camera tool identification
+
+⏳ 1.2 Vision AI Tool Integration
+    - Connect "Identify Tools" vision mode to tool inventory:
+      * Automatically detect tools in photos
+      * Present identified tools for user confirmation
+      * Add confirmed tools to user inventory
+      * Handle duplicate tool detection
+
+⏳ 1.3 Project Scoring Data Model
+    - Extend existing Post schema with scoring fields:
+      * individualSkillScore: number (0-100)
+      * skillLevelCategory: SkillLevel enum
+      * scoringCriteria: object with breakdown
+      * documentationCompleteness: number
+      * aiScoringMetadata: object
+    - Update User schema with calculated fields:
+      * averageProjectScore: number
+      * calculatedSkillLevel: SkillLevel
+      * projectCount: number
+      * skillProgression: array of historical scores
+
+⏳ 1.4 Project Scoring Framework Design
+    - Define 5-tier skill level categories (align with existing User Profile levels)
+    - Establish scoring criteria for craft projects:
+      * Technical execution quality (40%)
+      * Process documentation completeness (30%) 
+      * Tool usage appropriateness (15%)
+      * Safety adherence (10%)
+      * Innovation/creativity (5%)
+    - Create weighted scoring algorithm (0-100 scale)
+
+=================================================================
+PHASE 2: PROJECT SCORING & DOCUMENTATION (CORE FEATURES)
+=================================================================
+
+🎯 CORE CONCEPT: Complete AI Scoring System & Enhanced Documentation
+
+⏳ 2.1 Build AI Scoring Service
+    - Create ProjectScoringService class
+    - Integrate with existing RAG/OpenAI services
+    - Implement scoring prompt templates for each craft type
+    - Add confidence scoring and human review flags
+    - Handle edge cases (insufficient documentation, unclear images)
+
+⏳ 2.2 Project Documentation Enhancement
+    - Modify camera workflow to capture process documentation:
+      * Multiple process photos (work-in-progress shots)
+      * Tool identification and usage documentation
+      * Final product photo (serves as thumbnail)
+    - Add documentation prompts during project creation
+    - Implement documentation completeness tracking
+
+⏳ 2.3 User Skill Level Calculation
+    - Create skill level calculation algorithm
+    - Implement real-time user skill level updates
+    - Add skill progression tracking and history
+    - Create skill level badges and visual indicators
+
+⏳ 2.4 Project Submission & Review Flow
+    - Build project submission interface
+    - Implement AI review pipeline
+    - Add manual review queue for edge cases
+    - Create scoring results display for users
+
+⏳ 2.5 Enhanced Tool Management
+    - Keep existing manual tool addition/editing capabilities
+    - Add tool categories and organization
+    - Implement tool usage tracking in projects
+    - Create tool recommendation system based on project types
+
+⏳ 2.6 Tool Inventory Analytics
+    - Track tool identification accuracy
+    - Provide insights on tool usage patterns
+    - Suggest missing tools for specific craft types
+    - Integration with project scoring (tool appropriateness)
+
+=================================================================
+PHASE 3: GALLERY & UI ENHANCEMENT (INTERFACE)
+=================================================================
+
+🎯 CORE CONCEPT: Visual Platform Excellence - UI Before Onboarding
+
+⏳ 3.1 Gallery Thumbnail System Redesign
+    - Option A: Mirror user's photo library with app indicators
+      * Scan user's photo library for recent images
+      * Display all photos in chronological grid
+      * Add hammer emoji indicator for app-captured photos
+      * Distinguish between in-app and external photos
+    
+⏳ 3.2 Gallery Thumbnail Enhancement
+    - Improve thumbnail generation and caching
+    - Implement lazy loading for large photo collections
+    - Add photo metadata display (date, project association)
+    - Create photo organization and filtering options
+
+⏳ 3.3 Visual Hierarchy Improvements
+    - Enhance craft-themed design consistency
+    - Improve typography and spacing throughout app
+    - Add micro-interactions and animations
+    - Optimize for different screen sizes and orientations
+
+⏳ 3.4 Performance Optimization
+    - Optimize image loading and caching
+    - Implement efficient scrolling for large galleries
+    - Add progressive image loading
+    - Monitor and improve app startup time
+
+=================================================================
+PHASE 4: SOCIAL FEATURES (COMMUNITY)
+=================================================================
+
+🎯 CORE CONCEPT: Community Engagement & Interaction
+
+⏳ 4.1 Post Interaction System
+    - Implement like functionality:
+      * Add like button to post cards
+      * Track likes in Firestore with user attribution
+      * Real-time like count updates
+      * Prevent duplicate likes per user
+    
+⏳ 4.2 Commenting System
+    - Design comment data model and Firestore structure
+    - Build comment UI components:
+      * Comment input with character limit
+      * Comment list with user attribution
+      * Reply functionality (optional: nested comments)
+    - Implement comment moderation hooks
+
+⏳ 4.3 Sharing Functionality
+    - Add native share functionality using expo-sharing
+    - Implement in-app sharing to user profiles
+    - Create shareable project links
+    - Add social media sharing capabilities
+
+⏳ 4.4 Story View Analytics Fix
+    - Debug existing story analytics implementation
+    - Fix story view counting and user tracking
+    - Implement story viewer list functionality
+    - Add analytics dashboard for story creators
+
+=================================================================
+PHASE 5: ONBOARDING & FINAL POLISH (COMPLETE EXPERIENCE)
+=================================================================
+
+🎯 CORE CONCEPT: Seamless New User Journey on Stable Features
+
+⏳ 5.1 Welcome Flow Design
+    - Create multi-step onboarding screens:
+      * Welcome to SnapCraft
+      * Craft specialization selection
+      * Camera permissions and tutorial
+      * Tool inventory introduction
+      * First project guidance
+    
+⏳ 5.2 Interactive Tutorials
+    - Build camera tutorial with vision mode demonstration
+    - Create tool identification walkthrough
+    - Add project documentation best practices guide
+    - Implement progress tracking through onboarding
+
+⏳ 5.3 First Project Assistance
+    - Guide users through their first project creation
+    - Provide documentation tips and prompts
+    - Offer sample projects for different skill levels
+    - Celebrate first project completion
+
+⏳ 5.4 Onboarding Analytics
+    - Track onboarding completion rates
+    - Identify drop-off points in the flow
+    - A/B test different onboarding approaches
+    - Measure time-to-first-project metrics
+
+=================================================================
+TECHNICAL CONSIDERATIONS
+=================================================================
+
+📚 IMPLEMENTATION NOTES:
+- Leverage existing Firebase/Firestore infrastructure
+- Utilize current RAG/OpenAI integration for AI scoring
+- Build upon existing camera and vision mode system
+- Maintain backwards compatibility with existing data
+- Implement feature flags for gradual rollout
+
+🔧 TESTING REQUIREMENTS:
+- Each phase requires user testing and feedback
+- AI scoring accuracy validation with real craft projects
+- Performance testing with large photo collections
+- Cross-platform testing (iOS/Android/Web)
+
+🚀 DEPLOYMENT STRATEGY:
+- Phase-by-phase rollout to minimize risk
+- Feature flags for controlled feature activation
+- User feedback collection at each phase
+- Analytics tracking for feature adoption and engagement
+
+=================================================================
+OPTIMIZED PRIORITY ORDER
+=================================================================
+
+🎯 WEEK 1 - FOUNDATION:
+1. Phase 1.1-1.2: Tool inventory reset and vision AI integration
+2. Phase 1.3-1.4: Project scoring data models and framework
+3. Begin Phase 2.1: AI scoring service development
+
+🎯 WEEK 2 - CORE FEATURES:
+1. Phase 2.1-2.4: Complete AI scoring system and documentation workflow
+2. Phase 2.5-2.6: Enhanced tool management and analytics
+3. Begin Phase 3.1: Gallery redesign planning
+
+🎯 WEEK 3 - INTERFACE:
+1. Phase 3.1-3.4: Complete gallery and UI enhancements
+2. Begin Phase 4.1: Social features planning
+
+🎯 WEEK 4 - COMMUNITY:
+1. Phase 4.1-4.4: Social features implementation
+2. Begin Phase 5.1: Onboarding design
+
+🎯 WEEK 5 - EXPERIENCE:
+1. Phase 5.1-5.4: Complete onboarding and final polish
+
+⚠️ OPTIMIZED DEPENDENCIES:
+- Phase 1 establishes stable data foundation
+- Phase 2 builds complete scoring system before UI changes
+- Phase 3 finalizes UI before onboarding tutorials
+- Phase 4 adds social features to proven core functionality
+- Phase 5 creates onboarding experience on stable platform
+
+✅ CONFLICTS RESOLVED:
+- Gallery redesign happens BEFORE camera workflow changes
+- Onboarding built on stable, tested features
+- Tool integration completed before scoring integration
+- UI finalized before tutorial creation
+
+=================================================================
+SUCCESS METRICS
+=================================================================
+
+📊 KEY PERFORMANCE INDICATORS:
+- Project submission rate and documentation completeness
+- User engagement with social features (likes, comments, shares)
+- Tool inventory growth through AI identification
+- Onboarding completion rate and time-to-first-project
+- Overall user retention and craft skill progression
+
+Last Updated: June 28, 2025
+Total Items: 24 implementation tasks across 5 optimized phases

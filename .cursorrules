@@ -156,12 +156,14 @@ API Documentation
 
 Refer to Expo's documentation for detailed information on Views, Blueprints, and Extensions for best practices.
 
-Development Progress Tracking
-- ALWAYS update DEVELOPMENT_CHECKLIST.txt when completing tasks or implementing features
-- Change ⏳ (pending) to ✅ (completed) for finished items
-- Update the "Last Updated" date at the top of the checklist
-- Add new items to appropriate sections when discovering additional requirements
-- Move items between phases as priorities change
-- Update "CURRENT PRIORITY ITEMS" section to reflect immediate next steps
-- Add notes about implementation decisions or issues encountered
-- Maintain the checklist as the single source of truth for project progress 
+Development Progress Tracking - PROTECTED WORKFLOW
+- ⚠️  CRITICAL RULE: NEVER update any development checklist files (*CHECKLIST*.txt, *TODO*.txt, *PROGRESS*.txt) without explicit user permission
+- ⚠️  BEFORE marking any item as completed (⏳ → ✅), you MUST:
+  1. Ask the user: "Have you tested this implementation and confirmed it works correctly?"
+  2. Wait for explicit confirmation before updating the checklist
+  3. Only update after user confirms testing is complete
+- ⚠️  BEFORE creating new checklist files, ask for permission and confirm the structure
+- ⚠️  BEFORE adding new items to existing checklists, ask for permission
+- ⚠️  EXCEPTION: You may read checklist files for reference, but never modify them without permission
+- When user requests checklist updates, always confirm what specific changes they want before proceeding
+- Maintain checklists as the authoritative source of truth for project progress, but only with user oversight 
