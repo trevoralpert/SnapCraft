@@ -61,7 +61,7 @@ export default function CameraScreen({
   const [mode, setMode] = useState<'picture' | 'video'>('picture');
   
   // Vision mode state
-  const [isVisionMode, setIsVisionMode] = useState(initialVisionMode || false);
+  const [isVisionMode, setIsVisionMode] = useState(!!initialVisionMode);
   const [currentVisionMode, setCurrentVisionMode] = useState<VisionMode>(
     initialVisionMode || VisionMode.ANALYZE_PROJECT
   );
@@ -159,6 +159,12 @@ export default function CameraScreen({
       setIsVisionMode(true); // Enable vision mode if not already enabled
     }
     onModeChange?.(mode);
+  };
+
+  const handleReturnToDefault = () => {
+    console.log('📷 Returning to default craft documentation mode');
+    setIsVisionMode(false); // Turn off vision mode
+    setIsDropdownOpen(false); // Close dropdown
   };
 
   // Helper for getting current mode config
@@ -602,6 +608,7 @@ export default function CameraScreen({
           onToggle={toggleVisionMode}
           isDropdownOpen={isDropdownOpen}
           onDropdownToggle={(open: boolean) => setIsDropdownOpen(open)}
+          onReturnToDefault={handleReturnToDefault}
         />
       )}
     </SafeAreaView>

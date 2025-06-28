@@ -22,6 +22,7 @@ interface VisionDropdownSelectorProps {
   onToggle: () => void;
   isDropdownOpen: boolean;
   onDropdownToggle: (open: boolean) => void;
+  onReturnToDefault: () => void;
 }
 
 export default function VisionDropdownSelector({
@@ -31,6 +32,7 @@ export default function VisionDropdownSelector({
   onToggle,
   isDropdownOpen,
   onDropdownToggle,
+  onReturnToDefault,
 }: VisionDropdownSelectorProps) {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -227,6 +229,35 @@ export default function VisionDropdownSelector({
               </View>
             </>
           )}
+          
+          {/* Return to Default Button */}
+          <View style={styles.separator} />
+          <View style={styles.dropdownSection}>
+            <TouchableOpacity
+              style={styles.returnToDefaultButton}
+              onPress={onReturnToDefault}
+              activeOpacity={0.7}
+            >
+              <View style={styles.selectionIndicator} />
+              
+              <View style={styles.dropdownItemIcon}>
+                <Ionicons 
+                  name="camera" 
+                  size={18} 
+                  color="#F5F5DC" 
+                />
+              </View>
+              
+              <View style={styles.dropdownItemText}>
+                <Text style={styles.returnToDefaultTitle}>
+                  Craft Documentation
+                </Text>
+                <Text style={styles.returnToDefaultDescription}>
+                  Return to regular photo and video capture
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </Animated.View>
     </>
@@ -420,5 +451,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 16,
     paddingBottom: 24, // Extra bottom padding to ensure last item is fully visible
+  },
+  returnToDefaultButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  returnToDefaultTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
+  returnToDefaultDescription: {
+    fontSize: 12,
+    color: '#CCCCCC',
   },
 }); 
