@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Markdown from 'react-native-markdown-display';
 import { RAGService, RAGQuery, EnhancedRAGResponse } from '../../services/rag';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -221,7 +222,7 @@ Please consider my available tools when providing recommendations.`;
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.responseContent}>{response.content}</Text>
+                <Markdown style={markdownStyles}>{response.content}</Markdown>
               </View>
 
               {/* Knowledge Sources */}
