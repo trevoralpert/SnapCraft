@@ -27,6 +27,8 @@ export interface User {
   };
   // Tutorial Progress tracking - Phase 5: Task 5.2
   tutorialProgress?: { [tutorialId: string]: TutorialProgress };
+  // First Project Assistance tracking - Phase 5: Task 5.3
+  firstProjectGuidance?: FirstProjectGuidance;
   // Project Scoring Calculated Fields
   scoring?: {
     averageProjectScore: number; // 0-100 average of all project scores
@@ -658,4 +660,62 @@ export interface TutorialData {
   userProgress: { [tutorialId: string]: TutorialProgress };
   completedTutorials: string[];
   recommendedTutorials: string[];
+}
+
+// First Project Assistance Types - Phase 5: Task 5.3
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  craftType: CraftSpecialization;
+  skillLevel: SkillLevel;
+  estimatedTime: number; // in minutes
+  difficulty: DifficultyLevel;
+  materials: string[];
+  tools: string[];
+  steps: ProjectStep[];
+  tips: string[];
+  imageUrl?: string;
+  isPopular: boolean;
+  completionRate: number; // percentage of users who complete this template
+}
+
+export interface ProjectStep {
+  id: string;
+  title: string;
+  description: string;
+  instructions: string[];
+  tips: string[];
+  estimatedTime: number; // in minutes
+  photoRequired: boolean;
+  safetyNotes?: string[];
+  commonMistakes?: string[];
+  successCriteria: string[];
+}
+
+export interface FirstProjectGuidance {
+  userId: string;
+  selectedTemplate?: ProjectTemplate;
+  currentStep: number;
+  completedSteps: string[];
+  startedAt: Date;
+  completedAt?: Date;
+  projectId?: string; // Link to actual created project
+  guidanceNotes: string[];
+  userFeedback?: {
+    difficulty: 'too-easy' | 'just-right' | 'too-hard';
+    helpfulness: number; // 1-5 rating
+    suggestions?: string;
+  };
+}
+
+export interface ProjectAssistanceData {
+  templates: ProjectTemplate[];
+  userGuidance: { [userId: string]: FirstProjectGuidance };
+  completionStats: {
+    totalUsers: number;
+    completedFirstProject: number;
+    averageCompletionTime: number; // in hours
+    popularTemplates: { templateId: string; completions: number }[];
+  };
 } 

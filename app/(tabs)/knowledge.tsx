@@ -56,6 +56,28 @@ export default function KnowledgeTab() {
           </View>
         </TouchableOpacity>
 
+        {/* First Project Assistance */}
+        <TouchableOpacity
+          style={[styles.featureCard, styles.firstProjectFeature]}
+          onPress={() => router.push('/first-project')}
+        >
+          <View style={styles.featureHeader}>
+            <Ionicons name="hammer" size={24} color="#FFFFFF" />
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          </View>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Your First Project</Text>
+          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
+            Get guided through your first craft project with step-by-step instructions, 
+            tips, and documentation assistance.
+          </Text>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>🎯 Guided</Text>
+            <Text style={styles.featureTag}>📋 Templates</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Interactive Tutorials */}
         <TouchableOpacity
           style={[styles.featureCard, styles.tutorialFeature]}
@@ -248,5 +270,9 @@ const styles = StyleSheet.create({
   tutorialFeature: {
     backgroundColor: '#2E7D32',
     borderColor: '#2E7D32',
+  },
+  firstProjectFeature: {
+    backgroundColor: '#D4AF37',
+    borderColor: '#D4AF37',
   },
 }); 
