@@ -34,28 +34,6 @@ export default function KnowledgeTab() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.featuresContainer}>
-        {/* Smart Craft Assistant */}
-        <TouchableOpacity
-          style={[styles.featureCard, styles.primaryFeature]}
-          onPress={() => setCurrentView('assistant')}
-        >
-          <View style={styles.featureHeader}>
-            <Ionicons name="construct" size={28} color="#FFFFFF" />
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>NEW</Text>
-            </View>
-          </View>
-          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Craft Assistant</Text>
-          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
-            Get AI-powered guidance tailored to your tools and skill level. 
-            Ask questions, get project suggestions, and troubleshoot problems.
-          </Text>
-          <View style={styles.featureFooter}>
-            <Text style={styles.featureTag}>🤖 RAG-Powered</Text>
-            <Text style={styles.featureTag}>🔨 Tool-Aware</Text>
-          </View>
-        </TouchableOpacity>
-
         {/* Interactive Tutorials */}
         <TouchableOpacity
           style={[styles.featureCard, styles.tutorialFeature]}
@@ -78,25 +56,25 @@ export default function KnowledgeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* Photo Analysis */}
+        {/* Smart Craft Assistant */}
         <TouchableOpacity
-          style={[styles.featureCard, styles.secondaryFeature]}
-          onPress={() => setCurrentView('photoAnalysis')}
+          style={[styles.featureCard, styles.primaryFeature]}
+          onPress={() => setCurrentView('assistant')}
         >
           <View style={styles.featureHeader}>
-            <Ionicons name="camera" size={24} color="#FFFFFF" />
+            <Ionicons name="construct" size={28} color="#FFFFFF" />
             <View style={styles.newBadge}>
               <Text style={styles.newBadgeText}>NEW</Text>
             </View>
           </View>
-          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Photo Analysis</Text>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Craft Assistant</Text>
           <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
-            Take photos of your projects and get AI-powered feedback, 
-            technique identification, and improvement suggestions.
+            Get AI-powered guidance tailored to your tools and skill level. 
+            Ask questions, get project suggestions, and troubleshoot problems.
           </Text>
           <View style={styles.featureFooter}>
-            <Text style={styles.featureTag}>📸 GPT-4 Vision</Text>
-            <Text style={styles.featureTag}>🎯 Technique ID</Text>
+            <Text style={styles.featureTag}>🤖 RAG-Powered</Text>
+            <Text style={styles.featureTag}>🔨 Tool-Aware</Text>
           </View>
         </TouchableOpacity>
 
@@ -119,18 +97,27 @@ export default function KnowledgeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* Coming Soon Features */}
-        <View style={[styles.featureCard, styles.comingSoonCard]}>
+        {/* Smart Photo Analysis */}
+        <TouchableOpacity
+          style={[styles.featureCard, styles.secondaryFeature]}
+          onPress={() => setCurrentView('photoAnalysis')}
+        >
           <View style={styles.featureHeader}>
-            <Ionicons name="scan" size={24} color="#666666" />
-            <Text style={styles.comingSoonBadge}>COMING SOON</Text>
+            <Ionicons name="camera" size={24} color="#FFFFFF" />
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
           </View>
-          <Text style={[styles.featureTitle, styles.comingSoonText]}>Tool Recognition</Text>
-          <Text style={[styles.featureDescription, styles.comingSoonText]}>
-            Photograph your tool collection to automatically update 
-            your inventory and get personalized recommendations.
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Smart Photo Analysis</Text>
+          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
+            Take photos of your projects and get AI-powered feedback, 
+            technique identification, and improvement suggestions.
           </Text>
-        </View>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>📸 GPT-4 Vision</Text>
+            <Text style={styles.featureTag}>🎯 Technique ID</Text>
+          </View>
+        </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
