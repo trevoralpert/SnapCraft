@@ -25,6 +25,8 @@ export interface User {
     currentStep?: number; // For resuming if interrupted (0-4)
     stepsCompleted?: OnboardingStep[]; // Track which steps were completed
   };
+  // Tutorial Progress tracking - Phase 5: Task 5.2
+  tutorialProgress?: { [tutorialId: string]: TutorialProgress };
   // Project Scoring Calculated Fields
   scoring?: {
     averageProjectScore: number; // 0-100 average of all project scores
@@ -613,4 +615,47 @@ export type OnboardingStepType =
   | 'craft-selection'
   | 'camera-permissions'
   | 'tool-introduction'
-  | 'first-project-guidance'; 
+  | 'first-project-guidance';
+
+// Tutorial System Types
+export interface TutorialStep {
+  id: string;
+  title: string;
+  description: string;
+  type: 'camera' | 'tool-identification' | 'documentation' | 'vision-mode';
+  completed: boolean;
+  completedAt?: Date;
+  duration?: number; // in seconds
+  interactionRequired?: boolean;
+  highlightElement?: string; // CSS selector or component identifier
+}
+
+export interface Tutorial {
+  id: string;
+  name: string;
+  description: string;
+  category: 'camera' | 'tools' | 'documentation' | 'general';
+  steps: TutorialStep[];
+  estimatedDuration: number; // in minutes
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  prerequisites?: string[]; // Other tutorial IDs
+  isRequired: boolean; // Required for onboarding vs optional
+}
+
+export interface TutorialProgress {
+  tutorialId: string;
+  userId: string;
+  startedAt: Date;
+  completedAt?: Date;
+  currentStepId?: string;
+  completedSteps: string[];
+  timeSpent: number; // in seconds
+  skipped: boolean;
+}
+
+export interface TutorialData {
+  availableTutorials: Tutorial[];
+  userProgress: { [tutorialId: string]: TutorialProgress };
+  completedTutorials: string[];
+  recommendedTutorials: string[];
+} 

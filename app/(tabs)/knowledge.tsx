@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { KnowledgeBaseScreen, SmartCraftAssistant, PhotoAnalysisScreen } from '../../src/features/knowledge';
 
 type KnowledgeView = 'hub' | 'assistant' | 'knowledgeBase' | 'photoAnalysis';
 
 export default function KnowledgeTab() {
   const [currentView, setCurrentView] = useState<KnowledgeView>('hub');
+  const router = useRouter();
 
   if (currentView === 'assistant') {
     return <SmartCraftAssistant onBack={() => setCurrentView('hub')} />;
@@ -51,6 +53,28 @@ export default function KnowledgeTab() {
           <View style={styles.featureFooter}>
             <Text style={styles.featureTag}>🤖 RAG-Powered</Text>
             <Text style={styles.featureTag}>🔨 Tool-Aware</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Interactive Tutorials */}
+        <TouchableOpacity
+          style={[styles.featureCard, styles.tutorialFeature]}
+          onPress={() => router.push('/tutorials')}
+        >
+          <View style={styles.featureHeader}>
+            <Ionicons name="school" size={24} color="#FFFFFF" />
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          </View>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Interactive Tutorials</Text>
+          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
+            Learn SnapCraft's features with hands-on tutorials. Master camera modes, 
+            tool identification, and project documentation.
+          </Text>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>🎓 Step-by-Step</Text>
+            <Text style={styles.featureTag}>📱 Interactive</Text>
           </View>
         </TouchableOpacity>
 
@@ -220,5 +244,9 @@ const styles = StyleSheet.create({
   },
   comingSoonText: {
     color: '#999999',
+  },
+  tutorialFeature: {
+    backgroundColor: '#2E7D32',
+    borderColor: '#2E7D32',
   },
 }); 
