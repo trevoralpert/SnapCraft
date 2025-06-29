@@ -15,7 +15,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotifications } from '../../shared/components/NotificationSystem';
-import { getPosts, updatePostEngagement } from '../../services/firebase/posts';
+import { 
+  getPosts, 
+  updatePostEngagement, 
+  likePost, 
+  unlikePost, 
+  hasUserLikedPost 
+} from '../../services/firebase/posts';
 import { CraftPost, CraftStory } from '../../shared/types';
 import { StoriesBar, StoryViewer, CreateStoryScreen } from '../stories';
 import { AuthService } from '../../services/firebase/auth';
@@ -153,6 +159,9 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
       setPosts(fetchedPosts);
       setError(null); // Clear any previous errors
       console.log(`✅ Loaded ${fetchedPosts.length} posts`);
+      
+      // Load user's existing likes
+      await loadUserLikes(fetchedPosts);
     } catch (err) {
       console.error('❌ Error loading posts:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -162,6 +171,33 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
       showError('Failed to load posts', 'Using cached content');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load user's existing likes for all posts
+  const loadUserLikes = async (postsToCheck: CraftPost[]) => {
+    if (!user) return;
+    
+    try {
+      console.log('❤️ Loading user likes...');
+      const likedPostIds = new Set<string>();
+      
+      // Check each post to see if user has liked it
+      for (const post of postsToCheck) {
+        try {
+          const hasLiked = await hasUserLikedPost(post.id, user.id);
+          if (hasLiked) {
+            likedPostIds.add(post.id);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error checking like for post ${post.id}:`, error);
+        }
+      }
+      
+      setLikedPosts(likedPostIds);
+      console.log(`✅ Loaded ${likedPostIds.size} liked posts for user`);
+    } catch (error) {
+      console.error('❌ Error loading user likes:', error);
     }
   };
 
@@ -183,52 +219,73 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   };
 
   // Handle post interactions
-  const handleLike = (postId: string) => {
-    const newLikedPosts = new Set(likedPosts);
+  const handleLike = async (postId: string) => {
+    if (!user) {
+      showError('Authentication Required', 'Please sign in to like posts');
+      return;
+    }
+
     const isLiked = likedPosts.has(postId);
     
-    if (isLiked) {
-      newLikedPosts.delete(postId);
-    } else {
-      newLikedPosts.add(postId);
-    }
-    
-    setLikedPosts(newLikedPosts);
-    
-    // Update post engagement
-    setPosts(prevPosts => 
-      prevPosts.map(post => 
-        post.id === postId 
-          ? { 
-              ...post, 
-              engagement: { 
-                ...post.engagement, 
-                likes: post.engagement.likes + (isLiked ? -1 : 1) 
-              } 
-            }
-          : post
-      )
-    );
-    
-    console.log(`${isLiked ? '💔' : '❤️'} Post ${postId} ${isLiked ? 'unliked' : 'liked'}`);
-    
-    // Show notification for like action
-    if (!isLiked) {
-      showSuccess('Liked!', 'Post added to your liked crafts');
+    try {
+      let newLikeCount: number;
       
-      // Simulate achievement unlock for first like
-      if (likedPosts.size === 0) {
-        setTimeout(() => {
-          showAchievement(
-            'First Like!',
-            'You liked your first craft post. Keep engaging with the community!',
-            {
-              label: 'View Achievement',
-              onPress: () => console.log('Navigate to achievements'),
-            }
-          );
-        }, 1000);
+      if (isLiked) {
+        // Unlike the post
+        console.log('💔 Unliking post:', postId);
+        newLikeCount = await unlikePost(postId, user.id);
+        
+        // Update local state
+        const newLikedPosts = new Set(likedPosts);
+        newLikedPosts.delete(postId);
+        setLikedPosts(newLikedPosts);
+        
+        showInfo('Unliked', 'Post removed from your liked crafts');
+      } else {
+        // Like the post
+        console.log('❤️ Liking post:', postId);
+        newLikeCount = await likePost(postId, user.id);
+        
+        // Update local state
+        const newLikedPosts = new Set(likedPosts);
+        newLikedPosts.add(postId);
+        setLikedPosts(newLikedPosts);
+        
+        showSuccess('Liked!', 'Post added to your liked crafts');
+        
+        // Simulate achievement unlock for first like
+        if (likedPosts.size === 0) {
+          setTimeout(() => {
+            showAchievement(
+              'First Like!',
+              'You liked your first craft post. Keep engaging with the community!',
+              {
+                label: 'View Achievement',
+                onPress: () => console.log('Navigate to achievements'),
+              }
+            );
+          }, 1000);
+        }
       }
+      
+      // Update post engagement count in local state
+      setPosts(prevPosts => 
+        prevPosts.map(post => 
+          post.id === postId 
+            ? { 
+                ...post, 
+                engagement: { 
+                  ...post.engagement, 
+                  likes: newLikeCount
+                } 
+              }
+            : post
+        )
+      );
+      
+    } catch (error) {
+      console.error('❌ Error handling like:', error);
+      showError('Like Failed', 'Unable to update like status. Please try again.');
     }
   };
 

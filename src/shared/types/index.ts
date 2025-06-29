@@ -56,6 +56,11 @@ export interface CraftPost {
     shares: number;
     saves: number;
   };
+  // Social Features - Task 4.1: Post Interaction System
+  likedBy?: string[]; // Array of user IDs who liked this post
+  commentedBy?: string[]; // Array of user IDs who commented on this post
+  sharedBy?: string[]; // Array of user IDs who shared this post
+  savedBy?: string[]; // Array of user IDs who saved this post
   isEphemeral: boolean;
   expiresAt?: Date;
   // Project Scoring Fields

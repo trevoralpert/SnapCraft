@@ -208,6 +208,202 @@ export const updatePostEngagement = async (
 };
 
 /**
+ * Like a post with user attribution and duplicate prevention
+ * @param postId - Post ID to like
+ * @param userId - User ID who is liking the post
+ * @returns Promise with updated like count
+ */
+export const likePost = async (postId: string, userId: string): Promise<number> => {
+  if (!db) {
+    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    // Get current post data
+    const postRef = doc(db, POSTS_COLLECTION, postId);
+    const postSnap = await getDoc(postRef);
+    
+    if (!postSnap.exists()) {
+      throw new Error('Post not found');
+    }
+
+    const postData = postSnap.data() as CraftPost;
+    
+    // Initialize likedBy array if it doesn't exist
+    const likedBy = postData.likedBy || [];
+    
+    // Check if user already liked this post
+    if (likedBy.includes(userId)) {
+      console.log('⚠️ User already liked this post:', { postId, userId });
+      return postData.engagement.likes; // Return current count without change
+    }
+
+    // Add user to likedBy array and increment like count
+    const newLikedBy = [...likedBy, userId];
+    const newLikeCount = postData.engagement.likes + 1;
+
+    // Update post with new like data
+    await updateDoc(postRef, {
+      likedBy: newLikedBy,
+      'engagement.likes': newLikeCount,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log('❤️ Post liked successfully:', { postId, userId, newLikeCount });
+    return newLikeCount;
+  } catch (error) {
+    console.error('❌ Error liking post:', error);
+    throw new Error(`Failed to like post: ${error}`);
+  }
+};
+
+/**
+ * Unlike a post with user attribution
+ * @param postId - Post ID to unlike
+ * @param userId - User ID who is unliking the post
+ * @returns Promise with updated like count
+ */
+export const unlikePost = async (postId: string, userId: string): Promise<number> => {
+  if (!db) {
+    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    // Get current post data
+    const postRef = doc(db, POSTS_COLLECTION, postId);
+    const postSnap = await getDoc(postRef);
+    
+    if (!postSnap.exists()) {
+      throw new Error('Post not found');
+    }
+
+    const postData = postSnap.data() as CraftPost;
+    
+    // Initialize likedBy array if it doesn't exist
+    const likedBy = postData.likedBy || [];
+    
+    // Check if user actually liked this post
+    if (!likedBy.includes(userId)) {
+      console.log('⚠️ User has not liked this post:', { postId, userId });
+      return postData.engagement.likes; // Return current count without change
+    }
+
+    // Remove user from likedBy array and decrement like count
+    const newLikedBy = likedBy.filter((id: string) => id !== userId);
+    const newLikeCount = Math.max(0, postData.engagement.likes - 1); // Prevent negative likes
+
+    // Update post with new like data
+    await updateDoc(postRef, {
+      likedBy: newLikedBy,
+      'engagement.likes': newLikeCount,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log('💔 Post unliked successfully:', { postId, userId, newLikeCount });
+    return newLikeCount;
+  } catch (error) {
+    console.error('❌ Error unliking post:', error);
+    throw new Error(`Failed to unlike post: ${error}`);
+  }
+};
+
+/**
+ * Check if a user has liked a post
+ * @param postId - Post ID to check
+ * @param userId - User ID to check
+ * @returns Promise with boolean indicating if user liked the post
+ */
+export const hasUserLikedPost = async (postId: string, userId: string): Promise<boolean> => {
+  if (!db) {
+    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    const postRef = doc(db, POSTS_COLLECTION, postId);
+    const postSnap = await getDoc(postRef);
+    
+    if (!postSnap.exists()) {
+      return false;
+    }
+
+    const postData = postSnap.data() as CraftPost;
+    const likedBy = postData.likedBy || [];
+    
+    return likedBy.includes(userId);
+  } catch (error) {
+    console.error('❌ Error checking if user liked post:', error);
+    return false; // Default to false on error
+  }
+};
+
+/**
+ * Get all liked posts by a user
+ * @param userId - User ID to get liked posts for
+ * @param limitCount - Maximum number of posts to retrieve
+ * @returns Promise with array of liked posts
+ */
+export const getUserLikedPosts = async (userId: string, limitCount: number = 50): Promise<CraftPost[]> => {
+  if (!db) {
+    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    const postsRef = collection(db, POSTS_COLLECTION);
+    const q = query(
+      postsRef, 
+      where('likedBy', 'array-contains', userId),
+      orderBy('updatedAt', 'desc'), 
+      limit(limitCount)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const posts: CraftPost[] = [];
+
+    querySnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+      const data = doc.data();
+      posts.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as CraftPost);
+    });
+
+    console.log(`❤️ Retrieved ${posts.length} liked posts for user ${userId}`);
+    return posts;
+  } catch (error) {
+    console.error('❌ Error fetching user liked posts:', error);
+    throw new Error(`Failed to fetch user liked posts: ${error}`);
+  }
+};
+
+/**
+ * Get users who liked a specific post
+ * @param postId - Post ID to get likers for
+ * @returns Promise with array of user IDs who liked the post
+ */
+export const getPostLikers = async (postId: string): Promise<string[]> => {
+  if (!db) {
+    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    const postRef = doc(db, POSTS_COLLECTION, postId);
+    const postSnap = await getDoc(postRef);
+    
+    if (!postSnap.exists()) {
+      return [];
+    }
+
+    const postData = postSnap.data() as CraftPost;
+    return postData.likedBy || [];
+  } catch (error) {
+    console.error('❌ Error fetching post likers:', error);
+    return [];
+  }
+};
+
+/**
  * Delete a post
  * @param postId - Post ID to delete
  * @returns Promise
