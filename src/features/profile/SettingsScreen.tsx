@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/firebase/auth';
 import { useTheme } from '../../shared/contexts/ThemeContext';
+import { formatFirebaseDate } from '../../shared/utils/date';
 
 interface SettingsState {
   // App Preferences
@@ -279,7 +280,7 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
           <>
             <View style={styles.accountInfo}>
               <Text style={styles.accountEmail}>{user?.email}</Text>
-              <Text style={styles.accountMember}>Member since {user?.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'Recently'}</Text>
+              <Text style={styles.accountMember}>Member since {user?.joinedAt ? formatFirebaseDate(user.joinedAt) : 'Recently'}</Text>
             </View>
             
             {renderActionItem(

@@ -18,6 +18,7 @@ import { CraftButton } from '../../shared/components/CraftButton';
 import { SkillLevelBadge } from '../../shared/components';
 import { UserSkillLevelService } from '../../services/scoring/UserSkillLevelService';
 import { AuthService } from '../../services/firebase/auth';
+import { formatFirebaseDate } from '../../shared/utils/date';
 import ScoringHistoryScreen from './ScoringHistoryScreen';
 
 const craftSpecializations: { key: CraftSpecialization; label: string; emoji: string }[] = [
@@ -67,7 +68,6 @@ export function ProfileScreen() {
     bio: '',
     location: '',
     craftSpecialization: [] as CraftSpecialization[],
-    skillLevel: 'novice' as SkillLevel,
   });
 
   useEffect(() => {
@@ -77,7 +77,6 @@ export function ProfileScreen() {
         bio: user.bio || '',
         location: user.location || '',
         craftSpecialization: user.craftSpecialization || [],
-        skillLevel: user.skillLevel || 'novice',
       });
     }
   }, [user]);
@@ -139,7 +138,7 @@ export function ProfileScreen() {
         bio: formData.bio.trim(),
         location: formData.location.trim(),
         craftSpecialization: formData.craftSpecialization,
-        skillLevel: formData.skillLevel,
+        // skillLevel is now AI-determined, don't update it manually
       };
 
       await AuthService.updateUserProfile(updatedUser);
@@ -171,7 +170,6 @@ export function ProfileScreen() {
         bio: user.bio || '',
         location: user.location || '',
         craftSpecialization: user.craftSpecialization || [],
-        skillLevel: user.skillLevel || 'novice',
       });
     }
     setIsEditing(false);
@@ -209,7 +207,7 @@ export function ProfileScreen() {
           </View>
           <Text style={styles.email}>{user.email}</Text>
           <Text style={styles.joinedDate}>
-            Joined {user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'Recently'}
+            Joined {formatFirebaseDate(user.joinedAt, 'Recently')}
           </Text>
           
           {/* Calculated Skill Level Badge */}
@@ -318,27 +316,35 @@ export function ProfileScreen() {
 
         {/* Skill Level */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Skill Level</Text>
-          {skillLevels.map((level) => (
-            <TouchableOpacity
-              key={level.key}
-              style={[
-                styles.skillOption,
-                (isEditing ? formData.skillLevel : user.skillLevel) === level.key && styles.skillOptionSelected,
-                !isEditing && styles.skillOptionDisabled
-              ]}
-              onPress={() => isEditing && setFormData(prev => ({ ...prev, skillLevel: level.key }))}
-              disabled={!isEditing}
-            >
-              <View style={styles.skillOptionContent}>
-                <Text style={[
-                  styles.skillLabel,
-                  (isEditing ? formData.skillLevel : user.skillLevel) === level.key && styles.skillLabelSelected
-                ]}>{level.label}</Text>
-                <Text style={styles.skillDescription}>{level.description}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Skill Level</Text>
+            <View style={styles.aiIndicator}>
+              <Text style={styles.aiIndicatorText}>🤖 AI-Determined</Text>
+            </View>
+          </View>
+          
+          {/* Display current skill level (read-only) */}
+          <View style={styles.skillLevelDisplay}>
+            <View style={styles.skillLevelCard}>
+              <Text style={styles.currentSkillLabel}>
+                {skillLevels.find(level => level.key === (calculatedSkillLevel?.skillLevel || user.skillLevel))?.label || 'Novice'}
+              </Text>
+              <Text style={styles.currentSkillDescription}>
+                {skillLevels.find(level => level.key === (calculatedSkillLevel?.skillLevel || user.skillLevel))?.description || 'Just starting my craft journey'}
+              </Text>
+              {calculatedSkillLevel && calculatedSkillLevel.projectCount > 0 && (
+                <Text style={styles.skillLevelStats}>
+                  Based on {calculatedSkillLevel.projectCount} project{calculatedSkillLevel.projectCount > 1 ? 's' : ''} 
+                  {calculatedSkillLevel.averageScore > 0 && ` • Avg Score: ${Math.round(calculatedSkillLevel.averageScore)}/100`}
+                </Text>
+              )}
+            </View>
+          </View>
+          
+          <Text style={styles.aiExplanation}>
+            Your skill level is automatically calculated based on your project submissions, 
+            scoring results, and craft progression. Complete more projects to advance your level.
+          </Text>
         </View>
 
         {/* Edit Actions */}
@@ -781,5 +787,42 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#FFF8DC',
     borderRadius: 8,
+  },
+  aiIndicator: {
+    padding: 6,
+    backgroundColor: '#2196F3',
+    borderRadius: 6,
+  },
+  aiIndicatorText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  skillLevelDisplay: {
+    marginBottom: 16,
+  },
+  skillLevelCard: {
+    padding: 12,
+    backgroundColor: '#F9F5F1',
+    borderRadius: 8,
+  },
+  currentSkillLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 4,
+  },
+  currentSkillDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  skillLevelStats: {
+    fontSize: 14,
+    color: '#666',
+  },
+  aiExplanation: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
   },
 }); 
