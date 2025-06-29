@@ -11,6 +11,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '../src/stores/authStore';
 import { NotificationSystem, useNotifications } from '../src/shared/components/NotificationSystem';
 import { LoginScreen } from '../src/features/auth/LoginScreen';
+import { OnboardingScreen } from '../src/features/onboarding/OnboardingScreen';
+import { OnboardingService } from '../src/services/onboarding/OnboardingService';
 import { ThemeProvider, useTheme } from '../src/shared/contexts/ThemeContext';
 
 export {
@@ -74,7 +76,12 @@ export default function RootLayout() {
     return <LoginScreen />;
   }
 
-  // Show main app if authenticated
+  // Check if user needs onboarding
+  if (OnboardingService.needsOnboarding(user)) {
+    return <OnboardingScreen />;
+  }
+
+  // Show main app if authenticated and onboarded
   return (
     <ThemeProvider>
       <RootLayoutNav />

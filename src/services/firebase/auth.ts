@@ -62,6 +62,12 @@ export class AuthService {
         skillLevel,
         toolInventory: [],
         joinedAt: new Date(),
+        // Set onboarding as incomplete for new users
+        onboarding: {
+          completed: false,
+          currentStep: 0,
+          stepsCompleted: []
+        }
       };
 
       console.log('💾 Creating Firestore user document:', userData);
@@ -162,10 +168,30 @@ export class AuthService {
               skillLevel: 'novice',
               toolInventory: [],
               joinedAt: new Date(),
+              // Existing users (missing onboarding field) are marked as completed
+              onboarding: {
+                completed: true,
+                completedAt: new Date(),
+                currentStep: 5, // All steps completed
+                stepsCompleted: []
+              }
             };
             
             await setDoc(doc(getDb(), 'users', firebaseUser.uid), userData);
             console.log('✅ Default user profile created');
+          }
+          
+          // Migrate existing users without onboarding field
+          if (userData && !userData.onboarding) {
+            console.log('🔄 Migrating existing user to include onboarding completion...');
+            userData.onboarding = {
+              completed: true,
+              completedAt: new Date(),
+              currentStep: 5,
+              stepsCompleted: []
+            };
+            await this.updateUserData(firebaseUser.uid, { onboarding: userData.onboarding });
+            console.log('✅ User migrated successfully');
           }
           
           console.log('✅ User data retrieved:', userData ? { id: userData.id, email: userData.email } : null);

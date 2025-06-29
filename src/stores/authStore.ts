@@ -35,6 +35,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         location: 'Demo Workshop',
         joinedAt: new Date(),
         toolInventory: [],
+        // Demo users have completed onboarding
+        onboarding: {
+          completed: true,
+          completedAt: new Date(),
+          currentStep: 5,
+          stepsCompleted: []
+        }
       };
       set({ user: mockUser, isLoading: false });
       return;
@@ -71,6 +78,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         location: '',
         joinedAt: new Date(),
         toolInventory: [],
+        // New demo users need onboarding
+        onboarding: {
+          completed: false,
+          currentStep: 0,
+          stepsCompleted: []
+        }
       };
       set({ user: mockUser, isLoading: false });
       return;

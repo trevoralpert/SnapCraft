@@ -18,6 +18,13 @@ export interface User {
   joinedAt: Date;
   location?: string;
   bio?: string;
+  // Onboarding tracking - Phase 5: Task 5.1
+  onboarding?: {
+    completed: boolean;
+    completedAt?: Date;
+    currentStep?: number; // For resuming if interrupted (0-4)
+    stepsCompleted?: OnboardingStep[]; // Track which steps were completed
+  };
   // Project Scoring Calculated Fields
   scoring?: {
     averageProjectScore: number; // 0-100 average of all project scores
@@ -576,4 +583,34 @@ export interface ToolAnalytics {
     projectScoringInsights: { toolName: string; impactOnScore: number; frequency: number }[];
     gapAnalysis: { category: string; recommendedCount: number; currentCount: number }[];
   };
-} 
+}
+
+// Phase 5: Onboarding System Types
+export interface OnboardingStep {
+  id: number;
+  name: string;
+  completed: boolean;
+  completedAt?: Date;
+}
+
+export interface OnboardingData {
+  selectedCraftSpecializations?: CraftSpecialization[];
+  cameraPermissionGranted?: boolean;
+  hasSeenToolIntro?: boolean;
+  hasSeenFirstProjectTip?: boolean;
+}
+
+export interface OnboardingProgress {
+  currentStep: number;
+  totalSteps: number;
+  stepsCompleted: OnboardingStep[];
+  data: OnboardingData;
+  canSkip: boolean;
+}
+
+export type OnboardingStepType = 
+  | 'welcome'
+  | 'craft-selection'
+  | 'camera-permissions'
+  | 'tool-introduction'
+  | 'first-project-guidance'; 
