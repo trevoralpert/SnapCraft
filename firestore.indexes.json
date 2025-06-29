@@ -1,21 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "posts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "craftType",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "posts",
+      "collectionGroup": "craftPosts",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -29,7 +15,21 @@
       ]
     },
     {
-      "collectionGroup": "posts",
+      "collectionGroup": "craftPosts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "craftType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "craftPosts",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -43,7 +43,7 @@
       ]
     },
     {
-      "collectionGroup": "posts",
+      "collectionGroup": "craftPosts",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -185,11 +185,57 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "reviewRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "requestedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reviewRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priority",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "requestedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reviewRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedReviewerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "requestedAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
     {
-      "collectionGroup": "posts",
+      "collectionGroup": "craftPosts",
       "fieldPath": "tags",
       "indexes": [
         {

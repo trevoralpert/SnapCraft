@@ -262,21 +262,28 @@ export class UserSkillLevelService {
 
     const postsRef = collection(db, 'craftPosts');
     
-    // First get all user posts, then filter by scoring in memory to avoid complex index requirements
+    // Query only by userId to avoid composite index requirement
+    // We'll sort in memory after filtering
     const userPostsQuery = query(
       postsRef,
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
 
     const snapshot = await getDocs(userPostsQuery);
-    const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CraftPost));
+    const allPosts = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      // Ensure createdAt is a proper Date object
+      createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date(doc.data().createdAt)
+    } as CraftPost));
     
-    // Filter posts that have scoring data
-    return allPosts.filter(post => 
-      post.scoring?.individualSkillScore && 
-      post.scoring.individualSkillScore > 0
-    );
+    // Filter posts that have scoring data and sort by creation date (most recent first)
+    return allPosts
+      .filter(post => 
+        post.scoring?.individualSkillScore && 
+        post.scoring.individualSkillScore > 0
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   private calculateWeightedScore(projects: CraftPost[]): { averageScore: number; confidence: number } {

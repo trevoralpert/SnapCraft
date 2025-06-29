@@ -127,6 +127,23 @@ service cloud.firestore {
       // Only admins can read reports (handled server-side)
     }
     
+    // Review Requests collection - for manual review of AI scoring
+    match /reviewRequests/{reviewId} {
+      allow read: if isValidUser() && 
+                  (isOwner(resource.data.userId) || 
+                   resource.data.assignedReviewerId == request.auth.uid); // Users can read their own requests or assigned reviews
+      allow create: if isValidUser() && 
+                    request.resource.data.keys().hasAll(['projectId', 'userId', 'scoringId', 'reviewReason', 'status', 'priority', 'requestedAt', 'metadata']) &&
+                    isOwner(request.resource.data.userId) && // Can only create reviews for own projects
+                    request.resource.data.status in ['pending'] && // Can only create pending reviews
+                    request.resource.data.priority in ['low', 'medium', 'high'];
+      allow update: if isValidUser() && 
+                    (isOwner(resource.data.userId) || // User can update their own requests
+                     resource.data.assignedReviewerId == request.auth.uid) && // Assigned reviewer can update
+                    request.resource.data.userId == resource.data.userId && // Prevent userId changes
+                    request.resource.data.projectId == resource.data.projectId; // Prevent projectId changes
+    }
+    
     // Admin collection - restricted access
     match /admin/{document=**} {
       allow read, write: if false; // All admin operations handled server-side

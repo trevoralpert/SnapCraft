@@ -11,6 +11,9 @@ import {
   Modal,
   Image,
   TextInput,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions, FlashMode } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -32,6 +35,10 @@ import { uploadMultipleImages, generatePostImagePath } from '../../services/fire
 import { createPost } from '../../services/firebase/posts';
 import { CraftPost } from '../../shared/types';
 import { UserSkillLevelService } from '../../services/scoring/UserSkillLevelService';
+import { ProjectScoringService } from '../../services/scoring/ProjectScoringService';
+import { ManualReviewService } from '../../services/review/ManualReviewService';
+import { ProjectScoringResultsScreen } from '../scoring';
+import { ProjectScoringResult } from '../../shared/types';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -95,6 +102,11 @@ export default function CameraScreen({
   const [showTestOverlay, setShowTestOverlay] = useState(false);
   const [captionText, setCaptionText] = useState('');
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
+  // Scoring and review state
+  const [showScoringResults, setShowScoringResults] = useState(false);
+  const [currentScoringResult, setCurrentScoringResult] = useState<ProjectScoringResult | null>(null);
+  const [isProcessingScore, setIsProcessingScore] = useState(false);
 
   // Request permissions on mount and check available codecs
   useEffect(() => {
@@ -384,6 +396,7 @@ export default function CameraScreen({
 
     try {
       console.log('🔄 Creating real post...');
+      setIsProcessingScore(true);
       
       // Upload image to Firebase Storage
       const basePath = generatePostImagePath(user.id);
@@ -430,6 +443,70 @@ export default function CameraScreen({
       const postId = await createPost(postData);
       console.log('✅ Craft post created successfully:', postId);
 
+      // 🧠 AI PROJECT SCORING INTEGRATION
+      try {
+        console.log('🧠 Starting AI project scoring...');
+        const scoringService = ProjectScoringService.getInstance();
+        
+        // Prepare scoring request data
+        const scoringRequest = {
+          projectId: postId,
+          userId: user.id,
+          craftType: postData.craftType as any,
+          description: captionText.trim(),
+          materials: [],
+          techniques: [],
+          timeSpent: 0,
+          difficulty: 'beginner' as const,
+          imageUrls: imageUrls,
+          tags: [],
+          userSkillLevel: user.skillLevel || 'apprentice',
+          userProfile: {
+            bio: user.bio,
+            craftSpecialization: user.craftSpecialization
+          }
+        };
+        
+        // Score the project
+        const scoringResult = await scoringService.scoreProject(scoringRequest);
+        
+        console.log('🎯 Project scoring completed:', {
+          score: scoringResult.individualSkillScore,
+          skillLevel: scoringResult.skillLevelCategory,
+          confidence: scoringResult.aiScoringMetadata.confidence,
+          needsReview: scoringResult.aiScoringMetadata.needsHumanReview
+        });
+
+        // If AI flagged for review, automatically submit to review queue
+        if (scoringResult.aiScoringMetadata.needsHumanReview) {
+          try {
+            const reviewService = ManualReviewService.getInstance();
+            const reviewId = await reviewService.submitForReview(scoringResult, false);
+            console.log('📝 Project automatically submitted for manual review:', reviewId);
+          } catch (reviewError) {
+            console.warn('⚠️ Failed to submit for review:', reviewError);
+          }
+        }
+
+        // Store scoring result and show results screen
+        setCurrentScoringResult(scoringResult);
+        setIsProcessingScore(false);
+        setShowScoringResults(true);
+
+      } catch (scoringError) {
+        console.error('❌ Project scoring failed:', scoringError);
+        setIsProcessingScore(false);
+        
+        // Still show success but without scoring
+        setShowSuccessDialog(true);
+        
+        Alert.alert(
+          'Scoring Unavailable', 
+          'Your post was created successfully, but AI scoring is temporarily unavailable. You can view your scoring history later.',
+          [{ text: 'OK' }]
+        );
+      }
+
       // Update user skill level after post creation
       try {
         console.log('🧠 Updating user skill level...');
@@ -447,11 +524,9 @@ export default function CameraScreen({
         // Don't fail the post creation if skill update fails
       }
 
-      // Show custom success dialog
-      setShowSuccessDialog(true);
-
     } catch (error) {
       console.error('❌ Error creating post:', error);
+      setIsProcessingScore(false);
       Alert.alert('Error', 'Failed to create post. Please try again.');
     }
   };
@@ -624,75 +699,202 @@ export default function CameraScreen({
   // Add this after photo capture logic, around where the preview modal would be
   if (showTestOverlay) {
     return (
-      <View style={{ 
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: '#F5F5DC',
-        zIndex: 9999
-      }}>
-        {/* Header */}
-        <View style={{
-          paddingTop: 50,
-          paddingHorizontal: 20,
-          paddingBottom: 20,
-          backgroundColor: '#8B4513',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between'
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#F5F5DC',
+          zIndex: 9999
         }}>
-          <TouchableOpacity onPress={() => {
-            console.log('🟢 CLOSING CREATE POST OVERLAY');
-            setShowTestOverlay(false);
-            setShowPhotoPreview(false);
-            setPreviewPhotoUri('');
-            setPreviewVideoUri('');
-          }}>
-            <Text style={{ color: 'white', fontSize: 16 }}>Cancel</Text>
-          </TouchableOpacity>
-          
-          <Text style={{ 
-            color: 'white', 
-            fontSize: 18, 
-            fontWeight: 'bold' 
-          }}>
-            Create Post
-          </Text>
-          
-          <TouchableOpacity 
-            style={{
-              backgroundColor: '#D2691E',
-              paddingHorizontal: 15,
-              paddingVertical: 8,
-              borderRadius: 6
-            }}
-            onPress={async () => {
-              console.log('📤 CREATING REAL POST:', {
-                photo: previewPhotoUri,
-                caption: captionText,
-                captionLength: captionText.length
-              });
-              
-              // Create the actual post using the same logic as CreatePostScreen
-              await handleCreateRealPost();
-            }}
-          >
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>
-              Share
-            </Text>
-          </TouchableOpacity>
-        </View>
+          {/* Processing Overlay - Show on top when processing */}
+          {isProcessingScore && (
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 10001
+            }}>
+              <View style={{
+                backgroundColor: '#F5F5DC',
+                borderRadius: 20,
+                padding: 30,
+                margin: 20,
+                maxWidth: 320,
+                alignItems: 'center',
+                borderWidth: 3,
+                borderColor: '#8B4513'
+              }}>
+                {/* Processing Icon */}
+                <View style={{
+                  backgroundColor: '#8B4513',
+                  borderRadius: 50,
+                  width: 80,
+                  height: 80,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 20
+                }}>
+                  <Text style={{ fontSize: 40, color: 'white' }}>🧠</Text>
+                </View>
 
-        {/* Content */}
-        <View style={{ flex: 1, padding: 20 }}>
-          {/* Photo Preview */}
-          {previewPhotoUri && (
+                {/* Processing Title */}
+                <Text style={{
+                  fontSize: 24,
+                  fontWeight: 'bold',
+                  color: '#8B4513',
+                  textAlign: 'center',
+                  marginBottom: 10
+                }}>
+                  AI Scoring
+                </Text>
+
+                {/* Processing Message */}
+                <Text style={{
+                  fontSize: 16,
+                  color: '#654321',
+                  textAlign: 'center',
+                  marginBottom: 25,
+                  lineHeight: 22
+                }}>
+                  Our AI is analyzing your craft project and providing detailed feedback...
+                </Text>
+
+                {/* Loading Indicator */}
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  borderWidth: 3,
+                  borderColor: '#8B4513',
+                  borderTopColor: 'transparent',
+                  marginBottom: 15
+                }} />
+                
+                <Text style={{
+                  fontSize: 14,
+                  color: '#8B4513',
+                  fontStyle: 'italic'
+                }}>
+                  This may take a few moments...
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Header */}
+          <View style={{
+            paddingTop: 50,
+            paddingHorizontal: 20,
+            paddingBottom: 20,
+            backgroundColor: '#8B4513',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <TouchableOpacity onPress={() => {
+              console.log('🟢 CLOSING CREATE POST OVERLAY');
+              Keyboard.dismiss();
+              setShowTestOverlay(false);
+              setShowPhotoPreview(false);
+              setPreviewPhotoUri('');
+              setPreviewVideoUri('');
+            }}>
+              <Text style={{ color: 'white', fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <Text style={{ 
+              color: 'white', 
+              fontSize: 18, 
+              fontWeight: 'bold' 
+            }}>
+              Create Post
+            </Text>
+            
+            <TouchableOpacity 
+              style={{
+                backgroundColor: isProcessingScore ? '#999' : '#D2691E',
+                paddingHorizontal: 15,
+                paddingVertical: 8,
+                borderRadius: 6,
+                opacity: isProcessingScore ? 0.6 : 1.0
+              }}
+              disabled={isProcessingScore}
+              onPress={async () => {
+                if (isProcessingScore) return;
+                
+                // Dismiss keyboard before processing
+                Keyboard.dismiss();
+                
+                console.log('📤 CREATING REAL POST:', {
+                  photo: previewPhotoUri,
+                  caption: captionText,
+                  captionLength: captionText.length
+                });
+                
+                // Create the actual post using the same logic as CreatePostScreen
+                await handleCreateRealPost();
+              }}
+            >
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>
+                {isProcessingScore ? 'Processing...' : 'Share'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Content - Wrapped in ScrollView for better keyboard handling */}
+          <ScrollView 
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 20 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Photo Preview */}
+            {previewPhotoUri && (
+              <View style={{
+                backgroundColor: 'white',
+                borderRadius: 10,
+                padding: 10,
+                marginBottom: 20,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3
+              }}>
+                <Text style={{ 
+                  fontSize: 16, 
+                  fontWeight: 'bold', 
+                  color: '#8B4513',
+                  marginBottom: 10 
+                }}>
+                  📸 Your Craft Photo
+                </Text>
+                <Image 
+                  source={{ uri: previewPhotoUri }}
+                  style={{
+                    height: 200,
+                    width: '100%',
+                    borderRadius: 8,
+                    backgroundColor: '#f0f0f0'
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+
+            {/* Caption Input */}
             <View style={{
               backgroundColor: 'white',
               borderRadius: 10,
-              padding: 10,
+              padding: 15,
               marginBottom: 20,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 2 },
@@ -706,89 +908,59 @@ export default function CameraScreen({
                 color: '#8B4513',
                 marginBottom: 10 
               }}>
-                📸 Your Craft Photo
+                ✍️ Caption Your Craft Story
               </Text>
-              <Image 
-                source={{ uri: previewPhotoUri }}
+              <TextInput
                 style={{
-                  height: 200,
-                  width: '100%',
+                  borderWidth: 1,
+                  borderColor: '#ddd',
                   borderRadius: 8,
-                  backgroundColor: '#f0f0f0'
+                  padding: 12,
+                  minHeight: 100,
+                  backgroundColor: '#fafafa',
+                  fontSize: 14,
+                  color: '#333',
+                  textAlignVertical: 'top'
                 }}
-                resizeMode="cover"
+                placeholder="Describe your craft process, tools used, or what you learned..."
+                placeholderTextColor="#999"
+                multiline={true}
+                value={captionText}
+                onChangeText={setCaptionText}
+                returnKeyType="done"
+                blurOnSubmit={true}
               />
             </View>
-          )}
 
-          {/* Caption Input */}
-          <View style={{
-            backgroundColor: 'white',
-            borderRadius: 10,
-            padding: 15,
-            marginBottom: 20,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3
-          }}>
-            <Text style={{ 
-              fontSize: 16, 
-              fontWeight: 'bold', 
-              color: '#8B4513',
-              marginBottom: 10 
+            {/* Success Message */}
+            <View style={{
+              backgroundColor: '#DFF2BF',
+              borderColor: '#4F8A10',
+              borderWidth: 1,
+              borderRadius: 8,
+              padding: 15,
+              alignItems: 'center'
             }}>
-              ✍️ Caption Your Craft Story
-            </Text>
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: '#ddd',
-                borderRadius: 8,
-                padding: 12,
-                minHeight: 100,
-                backgroundColor: '#fafafa',
+              <Text style={{ 
+                color: '#4F8A10', 
+                fontSize: 16, 
+                fontWeight: 'bold',
+                textAlign: 'center'
+              }}>
+                🎉 SUCCESS! Photo-to-Post Flow Works!
+              </Text>
+              <Text style={{ 
+                color: '#4F8A10', 
                 fontSize: 14,
-                color: '#333',
-                textAlignVertical: 'top'
-              }}
-              placeholder="Describe your craft process, tools used, or what you learned..."
-              placeholderTextColor="#999"
-              multiline={true}
-              value={captionText}
-              onChangeText={setCaptionText}
-            />
-          </View>
-
-          {/* Success Message */}
-          <View style={{
-            backgroundColor: '#DFF2BF',
-            borderColor: '#4F8A10',
-            borderWidth: 1,
-            borderRadius: 8,
-            padding: 15,
-            alignItems: 'center'
-          }}>
-            <Text style={{ 
-              color: '#4F8A10', 
-              fontSize: 16, 
-              fontWeight: 'bold',
-              textAlign: 'center'
-            }}>
-              🎉 SUCCESS! Photo-to-Post Flow Works!
-            </Text>
-            <Text style={{ 
-              color: '#4F8A10', 
-              fontSize: 14,
-              textAlign: 'center',
-              marginTop: 5
-            }}>
-              This proves we can build the complete workflow without navigation issues.
-            </Text>
-          </View>
+                textAlign: 'center',
+                marginTop: 5
+              }}>
+                This proves we can build the complete workflow without navigation issues.
+              </Text>
+            </View>
+          </ScrollView>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     );
   }
 
@@ -912,6 +1084,145 @@ export default function CameraScreen({
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Scoring Results Modal
+  if (showScoringResults && currentScoringResult) {
+    return (
+      <ProjectScoringResultsScreen
+        scoringResult={currentScoringResult}
+        projectImages={[previewPhotoUri]}
+        onClose={() => {
+          setShowScoringResults(false);
+          setCurrentScoringResult(null);
+          setShowTestOverlay(false);
+          setShowPhotoPreview(false);
+          setPreviewPhotoUri('');
+          setCaptionText('');
+        }}
+        onViewProject={() => {
+          // Navigate to project/feed view
+          setShowScoringResults(false);
+          setCurrentScoringResult(null);
+          setShowTestOverlay(false);
+          setShowPhotoPreview(false);
+          setPreviewPhotoUri('');
+          setCaptionText('');
+          onClose?.();
+          router.push('/(tabs)');
+        }}
+        onRequestReview={async () => {
+          // Handle manual review request
+          if (currentScoringResult) {
+            try {
+              const reviewService = ManualReviewService.getInstance();
+              const reviewId = await reviewService.submitForReview(
+                currentScoringResult,
+                true, // User requested
+                'User requested additional review after seeing AI scoring results'
+              );
+              
+              Alert.alert(
+                'Review Requested',
+                'Your project has been submitted for manual review by our craft experts. You\'ll be notified when the review is complete.',
+                [{ text: 'OK' }]
+              );
+              
+              console.log('📝 User requested manual review:', reviewId);
+            } catch (error) {
+              console.error('❌ Failed to request review:', error);
+              Alert.alert(
+                'Request Failed',
+                'Unable to submit review request. Please try again later.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        }}
+      />
+    );
+  }
+
+  // Processing Score Overlay
+  if (isProcessingScore) {
+    return (
+      <View style={{ 
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      }}>
+        <View style={{
+          backgroundColor: '#F5F5DC',
+          borderRadius: 20,
+          padding: 30,
+          margin: 20,
+          maxWidth: 320,
+          alignItems: 'center',
+          borderWidth: 3,
+          borderColor: '#8B4513'
+        }}>
+          {/* Processing Icon */}
+          <View style={{
+            backgroundColor: '#8B4513',
+            borderRadius: 50,
+            width: 80,
+            height: 80,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 20
+          }}>
+            <Text style={{ fontSize: 40, color: 'white' }}>🧠</Text>
+          </View>
+
+          {/* Processing Title */}
+          <Text style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: '#8B4513',
+            textAlign: 'center',
+            marginBottom: 10
+          }}>
+            AI Scoring
+          </Text>
+
+          {/* Processing Message */}
+          <Text style={{
+            fontSize: 16,
+            color: '#654321',
+            textAlign: 'center',
+            marginBottom: 25,
+            lineHeight: 22
+          }}>
+            Our AI is analyzing your craft project and providing detailed feedback...
+          </Text>
+
+          {/* Loading Indicator */}
+          <View style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            borderWidth: 3,
+            borderColor: '#8B4513',
+            borderTopColor: 'transparent',
+            marginBottom: 15
+          }} />
+          
+          <Text style={{
+            fontSize: 14,
+            color: '#8B4513',
+            fontStyle: 'italic'
+          }}>
+            This may take a few moments...
+          </Text>
         </View>
       </View>
     );

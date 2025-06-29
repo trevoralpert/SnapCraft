@@ -98,11 +98,25 @@ export default function ScoringHistoryScreen({ onClose }: ScoringHistoryScreenPr
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>🎯 Skill Progression</Text>
-          <Text style={styles.headerSubtitle}>
-            Track your craft journey and skill development
-          </Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => {
+              console.log('📱 Closing skill progression screen');
+              if (onClose) {
+                onClose();
+              }
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>🎯 Skill Progression</Text>
+            <Text style={styles.headerSubtitle}>
+              Track your craft journey and skill development
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -182,8 +196,25 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 24,
   },
-  headerContent: {
+  headerTop: {
+    flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
+    zIndex: 1,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
   headerTitle: {
     fontSize: 24,
