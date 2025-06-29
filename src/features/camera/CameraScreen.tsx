@@ -39,6 +39,7 @@ import { ProjectScoringService } from '../../services/scoring/ProjectScoringServ
 import { ManualReviewService } from '../../services/review/ManualReviewService';
 import { ProjectScoringResultsScreen } from '../scoring';
 import { ProjectScoringResult } from '../../shared/types';
+import Markdown from 'react-native-markdown-display';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -107,6 +108,15 @@ export default function CameraScreen({
   const [showScoringResults, setShowScoringResults] = useState(false);
   const [currentScoringResult, setCurrentScoringResult] = useState<ProjectScoringResult | null>(null);
   const [isProcessingScore, setIsProcessingScore] = useState(false);
+
+  // Analysis modal state
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    response: any;
+    imageUri: string;
+    query: string;
+    timestamp: Date;
+  } | null>(null);
 
   // Request permissions on mount and check available codecs
   useEffect(() => {
@@ -242,9 +252,11 @@ export default function CameraScreen({
         console.log('Photo taken:', photo.uri);
         setLastPhotoUri(photo.uri);
         
-        // Handle tool identification if in identify tools mode
+        // Handle different vision modes
         if (isVisionMode && currentVisionMode === VisionMode.IDENTIFY_TOOLS) {
           await handleToolIdentification(photo.uri);
+        } else if (isVisionMode && currentVisionMode === VisionMode.ANALYZE_PROJECT) {
+          await handleProjectAnalysis(photo.uri);
         } else {
           // Show photo preview for seamless post creation
           setPreviewPhotoUri(photo.uri);
@@ -854,6 +866,55 @@ export default function CameraScreen({
       case 'on': return 'flash';
       case 'auto': return 'flash-outline';
       default: return 'flash-off';
+    }
+  };
+
+  // Handle project analysis process
+  const handleProjectAnalysis = async (photoUri: string) => {
+    try {
+      console.log('🔍 Starting project analysis for photo:', photoUri);
+      
+      // Import OpenAI service
+      const { OpenAIService } = await import('../../services/rag/openai');
+      const openaiService = OpenAIService.getInstance();
+      
+      // Build context for analysis
+      const context = {
+        userProfile: {
+          craftSpecialization: user?.craftSpecialization || [],
+          skillLevel: user?.skillLevel || 'beginner',
+          bio: user?.bio,
+        },
+      };
+      
+      // Project analysis specific query
+      const projectQuery = "Analyze this craft project photo. Provide a concise description of the process taking place in the photo. Identify any safety risks or procedural concerns you notice. Focus on: 1) What craft process/technique is being demonstrated, 2) Any safety issues or risks visible, 3) Any procedural improvements or best practices that could be applied.";
+      
+      // Analyze photo using GPT-4 Vision
+      const analysisResponse = await openaiService.analyzeCraftPhoto(
+        photoUri,
+        projectQuery,
+        context
+      );
+      
+      console.log('🔍 Project Analysis Response:', analysisResponse);
+      
+      // Show analysis result in a modal similar to PhotoAnalysisScreen
+      setAnalysisResult({
+        response: analysisResponse,
+        imageUri: photoUri,
+        query: projectQuery,
+        timestamp: new Date(),
+      });
+      setShowAnalysisModal(true);
+      
+    } catch (error) {
+      console.error('Error in project analysis:', error);
+      Alert.alert(
+        'Analysis Failed',
+        'Failed to analyze the project photo. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -1706,6 +1767,145 @@ export default function CameraScreen({
         onToolsAdded={handleToolsAdded}
         photoUri={lastPhotoUri}
       />
+
+      {/* Project Analysis Modal */}
+      <Modal
+        visible={showAnalysisModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5DC' }}>
+          {/* Header */}
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            padding: 16, 
+            borderBottomWidth: 1, 
+            borderBottomColor: '#DDD' 
+          }}>
+            <TouchableOpacity 
+              onPress={() => setShowAnalysisModal(false)}
+              style={{ padding: 8, marginRight: 16 }}
+            >
+              <Ionicons name="close" size={24} color="#8B4513" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Ionicons name="construct" size={32} color="#8B4513" />
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#8B4513', marginTop: 4 }}>
+                Project Analysis
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView style={{ flex: 1, padding: 16 }}>
+            {analysisResult && (
+              <>
+                {/* Image Preview */}
+                <View style={{
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 3
+                }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#8B4513', marginBottom: 12 }}>
+                    📸 Analyzed Photo
+                  </Text>
+                  <Image 
+                    source={{ uri: analysisResult.imageUri }}
+                    style={{ width: '100%', height: 200, borderRadius: 8 }}
+                    resizeMode="cover"
+                  />
+                </View>
+
+                {/* Analysis Results */}
+                <View style={{
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 3
+                }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#8B4513' }}>
+                      🔍 Analysis Results
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#666' }}>
+                      Confidence: {analysisResult.response.confidence}%
+                    </Text>
+                  </View>
+                  
+                  <Markdown style={analysisMarkdownStyles}>{analysisResult.response.analysis}</Markdown>
+                </View>
+
+                {/* Safety Considerations */}
+                {analysisResult.response.safetyConsiderations && analysisResult.response.safetyConsiderations.length > 0 && (
+                  <View style={{
+                    backgroundColor: '#FFF3CD',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 20,
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#FFC107'
+                  }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#856404', marginBottom: 12 }}>
+                      ⚠️ Safety Considerations
+                    </Text>
+                    <Markdown style={analysisMarkdownStyles}>{analysisResult.response.safetyConsiderations.map((safety: string) => `• ${safety}`).join('\n')}</Markdown>
+                  </View>
+                )}
+
+                {/* Suggested Improvements */}
+                {analysisResult.response.suggestedImprovements && analysisResult.response.suggestedImprovements.length > 0 && (
+                  <View style={{
+                    backgroundColor: '#D4EDDA',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 20,
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#28A745'
+                  }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#155724', marginBottom: 12 }}>
+                      💡 Suggested Improvements
+                    </Text>
+                    <Markdown style={analysisMarkdownStyles}>{analysisResult.response.suggestedImprovements.map((improvement: string) => `• ${improvement}`).join('\n')}</Markdown>
+                  </View>
+                )}
+
+                {/* Detected Craft Types */}
+                {analysisResult.response.detectedCraft && analysisResult.response.detectedCraft.length > 0 && (
+                  <View style={{
+                    backgroundColor: '#white',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 20,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3
+                  }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#8B4513', marginBottom: 12 }}>
+                      🎨 Detected Craft Types
+                    </Text>
+                    <Markdown style={analysisMarkdownStyles}>{analysisResult.response.detectedCraft.map((craft: string) => `• ${craft}`).join('\n')}</Markdown>
+                  </View>
+                )}
+
+                <View style={{ height: 20 }} />
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -2055,4 +2255,54 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
   },
-}); 
+});
+
+// Markdown styles for proper formatting
+const analysisMarkdownStyles = {
+  body: {
+    fontSize: 16,
+    color: '#333333',
+    lineHeight: 24,
+  },
+  heading1: {
+    fontSize: 20,
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  heading2: {
+    fontSize: 18,
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  heading3: {
+    fontSize: 16,
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  paragraph: {
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  strong: {
+    fontWeight: 'bold' as const,
+    color: '#8B4513',
+  },
+  em: {
+    fontStyle: 'italic' as const,
+  },
+  list_item: {
+    marginBottom: 4,
+  },
+  bullet_list: {
+    marginBottom: 8,
+  },
+  ordered_list: {
+    marginBottom: 8,
+  },
+}; 

@@ -23,6 +23,8 @@ import { formatFirebaseDate } from '../../shared/utils/date';
 import ScoringHistoryScreen from './ScoringHistoryScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { AchievementService } from '../../services/achievements/AchievementService';
+import { OnboardingService } from '../../services/onboarding/OnboardingService';
+import { TutorialService } from '../../services/tutorials/TutorialService';
 
 const craftSpecializations: { key: CraftSpecialization; label: string; emoji: string }[] = [
   { key: 'woodworking', label: 'Woodworking', emoji: '🪵' },
@@ -47,26 +49,12 @@ const skillLevels: { key: SkillLevel; label: string; description: string }[] = [
 ];
 
 export function ProfileScreen() {
-  const { user } = useAuthStore();
   const router = useRouter();
-  
-  // Debug logging (can be removed in production)
-  const isAuthenticated = !!user;
-  React.useEffect(() => {
-    console.log('🔍 ProfileScreen - Auth State:', { 
-      user: user ? { id: user.id, email: user.email, displayName: user.displayName } : null, 
-      isAuthenticated 
-    });
-  }, [user, isAuthenticated]);
+  const { user } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showScoringHistory, setShowScoringHistory] = useState(false);
-  const [calculatedSkillLevel, setCalculatedSkillLevel] = useState<{
-    skillLevel: SkillLevel;
-    averageScore: number;
-    projectCount: number;
-    confidence: number;
-  } | null>(null);
+  const [calculatedSkillLevel, setCalculatedSkillLevel] = useState<SkillLevel | null>(null);
   const [userProjects, setUserProjects] = useState<any[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [achievementStats, setAchievementStats] = useState({
@@ -82,6 +70,13 @@ export function ProfileScreen() {
     craftSpecialization: [] as CraftSpecialization[],
   });
 
+  // Analytics preview state
+  const [analyticsPreview, setAnalyticsPreview] = useState({
+    onboardingProgress: '0/5',
+    tutorialProgress: '0/3',
+    hasInsights: false,
+  });
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -93,30 +88,56 @@ export function ProfileScreen() {
     }
   }, [user]);
 
-  // Fetch calculated skill level
-  useEffect(() => {
-    const fetchSkillLevel = async () => {
-      if (!user) return;
-      
-      try {
-        console.log('📊 Fetching calculated skill level for user:', user.id);
-        const skillLevelService = UserSkillLevelService.getInstance();
-        const skillData = await skillLevelService.calculateUserSkillLevel(user.id);
-        setCalculatedSkillLevel(skillData);
-        console.log('✅ Skill level fetched:', skillData);
-      } catch (error) {
-        console.warn('⚠️ Failed to fetch skill level:', error);
-        // Fallback to user's manual skill level
-        setCalculatedSkillLevel({
-          skillLevel: user.skillLevel || 'novice',
-          averageScore: 0,
-          projectCount: 0,
-          confidence: 0
-        });
-      }
-    };
+  // Fetch analytics preview data
+  const fetchAnalyticsPreview = async () => {
+    if (!user) return;
 
-    fetchSkillLevel();
+    try {
+      // Get onboarding progress using the static method
+      const onboardingProgress = OnboardingService.getProgress(user);
+      
+      // Get tutorial progress using the static method
+      const tutorialProgress = await TutorialService.getTutorialProgress(user.id);
+      
+      // Calculate completed steps
+      const completedOnboardingSteps = onboardingProgress.stepsCompleted?.length || 0;
+      const totalOnboardingSteps = 5; // We have 5 onboarding steps
+      
+      // Calculate completed tutorials
+      const completedTutorials = Object.values(tutorialProgress || {})
+        .filter((tutorial: any) => tutorial.completed).length;
+      const totalTutorials = 3; // We have 3 tutorials
+      
+      // Update analytics preview
+      setAnalyticsPreview({
+        onboardingProgress: `${completedOnboardingSteps}/${totalOnboardingSteps}`,
+        tutorialProgress: `${completedTutorials}/${totalTutorials}`,
+        hasInsights: completedOnboardingSteps > 0 || completedTutorials > 0,
+      });
+      
+    } catch (error) {
+      console.error('Error fetching analytics preview:', error);
+      // Keep default values on error
+    }
+  };
+
+  const fetchSkillLevel = async () => {
+    if (!user) return;
+    
+    try {
+      const skillLevelService = UserSkillLevelService.getInstance();
+      const calculatedLevel = await skillLevelService.calculateUserSkillLevel(user.id);
+      setCalculatedSkillLevel(calculatedLevel);
+    } catch (error) {
+      console.error('Error fetching skill level:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchSkillLevel();
+      fetchAnalyticsPreview();
+    }
   }, [user]);
 
   const handleSave = async () => {
@@ -142,7 +163,7 @@ export function ProfileScreen() {
       return;
     }
 
-    setIsSaving(true);
+    setIsLoading(true);
     try {
       const updatedUser = {
         ...user,
@@ -171,7 +192,7 @@ export function ProfileScreen() {
         Alert.alert('Error', 'Failed to update profile. Please try again.');
       }
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
 
@@ -226,8 +247,8 @@ export function ProfileScreen() {
           {calculatedSkillLevel && (
             <View style={styles.skillBadgeContainer}>
               <SkillLevelBadge
-                skillLevel={calculatedSkillLevel.skillLevel}
-                averageScore={calculatedSkillLevel.averageScore}
+                skillLevel={calculatedSkillLevel}
+                averageScore={0}
                 showProgress={true}
                 size="large"
                 onPress={() => {
@@ -339,17 +360,11 @@ export function ProfileScreen() {
           <View style={styles.skillLevelDisplay}>
             <View style={styles.skillLevelCard}>
               <Text style={styles.currentSkillLabel}>
-                {skillLevels.find(level => level.key === (calculatedSkillLevel?.skillLevel || user.skillLevel))?.label || 'Novice'}
+                {skillLevels.find(level => level.key === calculatedSkillLevel)?.label || 'Novice'}
               </Text>
               <Text style={styles.currentSkillDescription}>
-                {skillLevels.find(level => level.key === (calculatedSkillLevel?.skillLevel || user.skillLevel))?.description || 'Just starting my craft journey'}
+                {skillLevels.find(level => level.key === calculatedSkillLevel)?.description || 'Just starting my craft journey'}
               </Text>
-              {calculatedSkillLevel && calculatedSkillLevel.projectCount > 0 && (
-                <Text style={styles.skillLevelStats}>
-                  Based on {calculatedSkillLevel.projectCount} project{calculatedSkillLevel.projectCount > 1 ? 's' : ''} 
-                  {calculatedSkillLevel.averageScore > 0 && ` • Avg Score: ${Math.round(calculatedSkillLevel.averageScore)}/100`}
-                </Text>
-              )}
             </View>
           </View>
           
@@ -369,9 +384,9 @@ export function ProfileScreen() {
               style={styles.actionButton}
             />
             <CraftButton
-              title={isSaving ? "Saving..." : "Save Changes"}
+              title={isLoading ? "Saving..." : "Save Changes"}
               onPress={handleSave}
-              disabled={isSaving}
+              disabled={isLoading}
               style={styles.actionButton}
             />
           </View>
@@ -612,15 +627,15 @@ export function ProfileScreen() {
             </Text>
             <View style={styles.analyticsPreview}>
               <View style={styles.analyticsStat}>
-                <Text style={styles.analyticsStatNumber}>5/5</Text>
+                <Text style={styles.analyticsStatNumber}>{analyticsPreview.onboardingProgress}</Text>
                 <Text style={styles.analyticsStatLabel}>Onboarding</Text>
               </View>
               <View style={styles.analyticsStat}>
-                <Text style={styles.analyticsStatNumber}>2/3</Text>
+                <Text style={styles.analyticsStatNumber}>{analyticsPreview.tutorialProgress}</Text>
                 <Text style={styles.analyticsStatLabel}>Tutorials</Text>
               </View>
               <View style={styles.analyticsStat}>
-                <Text style={styles.analyticsStatNumber}>✨</Text>
+                <Text style={styles.analyticsStatNumber}>{analyticsPreview.hasInsights ? '✨' : '📊'}</Text>
                 <Text style={styles.analyticsStatLabel}>Insights</Text>
               </View>
             </View>
@@ -952,10 +967,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   currentSkillDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
-  skillLevelStats: {
     fontSize: 14,
     color: '#666',
   },
