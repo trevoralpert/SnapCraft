@@ -56,28 +56,6 @@ export default function KnowledgeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* First Project Assistance */}
-        <TouchableOpacity
-          style={[styles.featureCard, styles.firstProjectFeature]}
-          onPress={() => router.push('/first-project')}
-        >
-          <View style={styles.featureHeader}>
-            <Ionicons name="hammer" size={24} color="#FFFFFF" />
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>NEW</Text>
-            </View>
-          </View>
-          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Your First Project</Text>
-          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
-            Get guided through your first craft project with step-by-step instructions, 
-            tips, and documentation assistance.
-          </Text>
-          <View style={styles.featureFooter}>
-            <Text style={styles.featureTag}>🎯 Guided</Text>
-            <Text style={styles.featureTag}>📋 Templates</Text>
-          </View>
-        </TouchableOpacity>
-
         {/* Interactive Tutorials */}
         <TouchableOpacity
           style={[styles.featureCard, styles.tutorialFeature]}
@@ -119,28 +97,6 @@ export default function KnowledgeTab() {
           <View style={styles.featureFooter}>
             <Text style={styles.featureTag}>📸 GPT-4 Vision</Text>
             <Text style={styles.featureTag}>🎯 Technique ID</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Onboarding Analytics */}
-        <TouchableOpacity
-          style={[styles.featureCard, styles.analyticsFeature]}
-          onPress={() => router.push('/analytics')}
-        >
-          <View style={styles.featureHeader}>
-            <Ionicons name="analytics" size={24} color="#FFFFFF" />
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>NEW</Text>
-            </View>
-          </View>
-          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Analytics Dashboard</Text>
-          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
-            Track your onboarding progress, tutorial completion, and learning journey. 
-            See insights and recommendations for improvement.
-          </Text>
-          <View style={styles.featureFooter}>
-            <Text style={styles.featureTag}>📊 Progress Tracking</Text>
-            <Text style={styles.featureTag}>💡 Insights</Text>
           </View>
         </TouchableOpacity>
 
@@ -290,14 +246,6 @@ const styles = StyleSheet.create({
     color: '#999999',
   },
   tutorialFeature: {
-    backgroundColor: '#2E7D32',
-    borderColor: '#2E7D32',
-  },
-  firstProjectFeature: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#D4AF37',
-  },
-  analyticsFeature: {
     backgroundColor: '#2E7D32',
     borderColor: '#2E7D32',
   },

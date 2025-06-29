@@ -63,6 +63,8 @@ export function ProfileScreen() {
     projectCount: number;
     confidence: number;
   } | null>(null);
+  const [userProjects, setUserProjects] = useState<any[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
     bio: '',
@@ -474,6 +476,60 @@ export function ProfileScreen() {
           </View>
         </View>
 
+        {/* Projects Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🎨 Projects</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                // Navigate to Craft Feed - for now just show alert
+                if (typeof window !== 'undefined' && window.alert) {
+                  window.alert('📸 Navigate to Craft Feed to create new projects!');
+                } else {
+                  Alert.alert('📸 Projects', 'Navigate to Craft Feed to create new projects!');
+                }
+              }} 
+              style={styles.viewAllButton}
+            >
+              <Text style={styles.viewAllButtonText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.projectsPreview}>
+            <Text style={styles.projectsDescription}>
+              Your craft projects and documentation will appear here. 
+              Use the Camera tab to capture and share your work!
+            </Text>
+            
+            {/* Project Stats */}
+            <View style={styles.projectStats}>
+              <View style={styles.projectStat}>
+                <Text style={styles.projectStatNumber}>0</Text>
+                <Text style={styles.projectStatLabel}>Projects</Text>
+              </View>
+              <View style={styles.projectStat}>
+                <Text style={styles.projectStatNumber}>0</Text>
+                <Text style={styles.projectStatLabel}>Photos</Text>
+              </View>
+              <View style={styles.projectStat}>
+                <Text style={styles.projectStatNumber}>-</Text>
+                <Text style={styles.projectStatLabel}>Avg Score</Text>
+              </View>
+            </View>
+            
+            {/* Recent Projects Preview */}
+            <View style={styles.recentProjects}>
+              <Text style={styles.recentProjectsTitle}>Recent Projects:</Text>
+              <View style={styles.noProjectsMessage}>
+                <Text style={styles.noProjectsText}>📷 No projects yet</Text>
+                <Text style={styles.noProjectsSubtext}>
+                  Start documenting your craft journey by taking photos of your work!
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Tool Inventory Preview */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tool Inventory</Text>
@@ -824,5 +880,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 8,
+  },
+  projectsPreview: {
+    padding: 16,
+    backgroundColor: '#F9F5F1',
+    borderRadius: 8,
+  },
+  projectsDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  projectStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  projectStat: {
+    alignItems: 'center',
+  },
+  projectStatNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  projectStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  recentProjects: {
+    marginTop: 8,
+  },
+  recentProjectsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B4513',
+    marginBottom: 8,
+  },
+  noProjectsMessage: {
+    alignItems: 'center',
+  },
+  noProjectsText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  noProjectsSubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
 }); 
