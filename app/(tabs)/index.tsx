@@ -6,6 +6,15 @@ export default function TabOneScreen() {
   const router = useRouter();
   const searchParams = useLocalSearchParams();
 
+  // Redirect to camera tab by default
+  useEffect(() => {
+    // Only redirect if no specific parameters are present
+    if (!searchParams.showCreatePost && !searchParams.mediaUri) {
+      router.replace('/(tabs)/camera');
+      return;
+    }
+  }, []);
+
   // Handle navigation parameters from camera
   useEffect(() => {
     if (searchParams.showCreatePost === 'true' && searchParams.mediaUri && searchParams.mediaType) {

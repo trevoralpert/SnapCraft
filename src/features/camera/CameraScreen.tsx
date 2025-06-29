@@ -267,17 +267,16 @@ export default function CameraScreen({
   // Handle tool identification process
   const handleToolIdentification = async (photoUri: string) => {
     try {
-      console.log('🔍 Starting tool identification for photo:', photoUri);
+      console.log('🔍 Starting real AI tool identification for photo:', photoUri);
       
-      // For now, create mock tool identification results
-      // In the future, this will call the actual RAG service
-      const mockToolConfirmations = await createMockToolIdentification(photoUri);
+      // Use real AI analysis instead of mock data
+      const realToolConfirmations = await createRealToolIdentification(photoUri);
       
-      if (mockToolConfirmations.length > 0) {
+      if (realToolConfirmations.length > 0) {
         // Check for duplicates against user's existing inventory
         const toolService = ToolIdentificationService.getInstance();
         const checkedConfirmations = await toolService.checkForDuplicates(
-          mockToolConfirmations,
+          realToolConfirmations,
           user?.id || 'anonymous-user'
         );
         
@@ -300,49 +299,185 @@ export default function CameraScreen({
     }
   };
 
-  // Create mock tool identification results for testing
-  const createMockToolIdentification = async (photoUri: string): Promise<ToolConfirmationData[]> => {
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const toolService = ToolIdentificationService.getInstance();
-    
-    // Mock vision analysis result
-    const mockAnalysisResult = {
-      mode: VisionMode.IDENTIFY_TOOLS,
-      photoUri: photoUri,
-      analysis: {
-        identifiedTools: [
-          {
-            name: 'Circular Saw',
-            confidence: 0.92,
-            category: 'power-tools',
-            usage: 'Used for making straight cuts in wood and other materials'
+  // Create real AI tool identification using OpenAI Vision API
+  const createRealToolIdentification = async (photoUri: string): Promise<ToolConfirmationData[]> => {
+    try {
+      console.log('🤖 Starting real AI tool analysis...');
+      
+      // Import OpenAI service
+      const { OpenAIService } = await import('../../services/rag/openai');
+      const openaiService = OpenAIService.getInstance();
+      
+      // Build context for analysis
+      const context = {
+        userProfile: {
+          craftSpecialization: user?.craftSpecialization || [],
+          skillLevel: user?.skillLevel || 'beginner',
+          bio: user?.bio,
+        },
+      };
+      
+      // Use tool identification specific query
+      const toolQuery = "Identify all tools visible in this image. For each tool, provide: 1) The specific tool name, 2) What category it belongs to (hand-tools, power-tools, measuring, safety, finishing, or specialized), 3) How it's typically used. Focus on being accurate and specific with tool names.";
+      
+      // Analyze photo using GPT-4 Vision
+      const analysisResponse = await openaiService.analyzeCraftPhoto(
+        photoUri,
+        toolQuery,
+        context
+      );
+      
+      console.log('🔍 AI Tool Analysis Response:', analysisResponse);
+      
+      // Parse the analysis to extract tool information
+      const toolService = ToolIdentificationService.getInstance();
+      const identifiedTools = parseToolsFromAnalysis(analysisResponse);
+      
+      // Convert to tool confirmations
+      const toolConfirmations: ToolConfirmationData[] = [];
+      const currentDate = new Date();
+      
+      identifiedTools.forEach((tool, index) => {
+        const toolConfirmation: ToolConfirmationData = {
+          tool: {
+            id: `ai_identified_${Date.now()}_${index}`,
+            name: tool.name,
+            category: tool.category,
+            brand: '',
+            condition: 'good' as ToolCondition,
+            acquiredDate: currentDate,
+            notes: `AI identified from photo. ${tool.usage}`,
+            isShared: false,
           },
-          {
-            name: 'Measuring Tape',
-            confidence: 0.87,
-            category: 'measuring',
-            usage: 'Essential for accurate measurements in construction and crafting'
-          },
-          {
-            name: 'Safety Glasses',
-            confidence: 0.95,
-            category: 'safety',
-            usage: 'Protect eyes from debris and dust during cutting operations'
+          confidence: tool.confidence,
+          isAlreadyInInventory: false,
+          suggestedCategory: tool.category,
+        };
+        
+        toolConfirmations.push(toolConfirmation);
+      });
+      
+      console.log('✅ Real AI tool identification completed:', toolConfirmations.length, 'tools found');
+      return toolConfirmations;
+      
+    } catch (error) {
+      console.error('❌ Real AI tool identification failed:', error);
+      // Fallback to a simple message rather than mock data
+      throw new Error('AI tool identification temporarily unavailable');
+    }
+  };
+
+  // Parse tools from AI analysis response
+  const parseToolsFromAnalysis = (analysisResponse: any): Array<{name: string, category: string, confidence: number, usage: string}> => {
+    const tools: Array<{name: string, category: string, confidence: number, usage: string}> = [];
+    
+    try {
+      // Look for tool recommendations in the response
+      if (analysisResponse.toolRecommendations && analysisResponse.toolRecommendations.length > 0) {
+        analysisResponse.toolRecommendations.forEach((toolRec: string) => {
+          const toolName = extractToolName(toolRec);
+          if (toolName) {
+            tools.push({
+              name: toolName,
+              category: categorizeToolByName(toolName),
+              confidence: analysisResponse.confidence || 85,
+              usage: toolRec
+            });
           }
-        ],
-        missingTools: [],
-        recommendations: ['Consider adding a dust mask for better safety'],
-        safetyNotes: ['Always wear safety glasses when operating power tools']
-      },
-      confidence: 0.91,
-      timestamp: new Date(),
-      processingTime: 1200,
-      queryId: `mock_${Date.now()}`,
-    };
+        });
+      }
+      
+      // Also parse from main analysis text for tools mentioned
+      if (analysisResponse.analysis) {
+        const analysisText = analysisResponse.analysis.toLowerCase();
+        const commonTools = [
+          { names: ['saw', 'circular saw', 'hand saw', 'jigsaw'], category: 'power-tools' },
+          { names: ['drill', 'cordless drill', 'power drill'], category: 'power-tools' },
+          { names: ['hammer', 'claw hammer'], category: 'hand-tools' },
+          { names: ['screwdriver', 'phillips screwdriver'], category: 'hand-tools' },
+          { names: ['wrench', 'socket wrench', 'adjustable wrench'], category: 'hand-tools' },
+          { names: ['measuring tape', 'tape measure'], category: 'measuring' },
+          { names: ['level', 'spirit level'], category: 'measuring' },
+          { names: ['chisel', 'wood chisel'], category: 'hand-tools' },
+          { names: ['pliers', 'needle nose pliers'], category: 'hand-tools' },
+          { names: ['safety glasses', 'safety goggles'], category: 'safety' },
+          { names: ['clamp', 'bar clamp', 'c-clamp'], category: 'hand-tools' },
+        ];
+        
+        commonTools.forEach(toolGroup => {
+          toolGroup.names.forEach(toolName => {
+            if (analysisText.includes(toolName) && !tools.some(t => t.name.toLowerCase().includes(toolName))) {
+              tools.push({
+                name: capitalizeWords(toolName),
+                category: toolGroup.category,
+                confidence: 80,
+                usage: `Tool identified in image analysis`
+              });
+            }
+          });
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error parsing tools from analysis:', error);
+    }
     
-    return toolService.processVisionAnalysis(mockAnalysisResult);
+    return tools.slice(0, 5); // Limit to 5 tools max
+  };
+
+  // Helper function to extract tool name from recommendation text
+  const extractToolName = (text: string): string | null => {
+    // Look for patterns like "Tool Name:" or "- Tool Name"
+    const patterns = [
+      /^([A-Z][a-zA-Z\s]+):/,
+      /^-\s*([A-Z][a-zA-Z\s]+)/,
+      /([A-Z][a-zA-Z\s]+)\s*-/,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    
+    // If no pattern matches, try to extract first few words
+    const words = text.split(' ').slice(0, 3);
+    if (words.length > 0 && words[0].match(/^[A-Z]/)) {
+      return words.join(' ');
+    }
+    
+    return null;
+  };
+
+  // Helper function to categorize tools by name
+  const categorizeToolByName = (toolName: string): string => {
+    const name = toolName.toLowerCase();
+    
+    if (name.includes('saw') || name.includes('drill') || name.includes('sander') || name.includes('router')) {
+      return 'power-tools';
+    }
+    if (name.includes('hammer') || name.includes('screwdriver') || name.includes('wrench') || name.includes('pliers') || name.includes('chisel')) {
+      return 'hand-tools';
+    }
+    if (name.includes('tape') || name.includes('level') || name.includes('ruler') || name.includes('square')) {
+      return 'measuring';
+    }
+    if (name.includes('safety') || name.includes('glasses') || name.includes('mask') || name.includes('gloves')) {
+      return 'safety';
+    }
+    if (name.includes('sandpaper') || name.includes('stain') || name.includes('finish')) {
+      return 'finishing';
+    }
+    
+    return 'hand-tools'; // Default category
+  };
+
+  // Helper function to capitalize words
+  const capitalizeWords = (str: string): string => {
+    return str.replace(/\w\S*/g, (txt) => 
+      txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
   };
 
   // Handle tool confirmation modal events

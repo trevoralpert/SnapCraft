@@ -376,7 +376,7 @@ export default function ToolInventoryScreen() {
         </Text>
       )}
 
-      {item.maintenanceReminders.length > 0 && (
+      {item.maintenanceReminders && item.maintenanceReminders.length > 0 && (
         <View style={styles.maintenanceContainer}>
           <Ionicons name="warning-outline" size={16} color="#FF9800" />
           <Text style={styles.maintenanceText}>

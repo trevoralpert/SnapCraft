@@ -20,6 +20,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="camera"
       screenOptions={{
         tabBarActiveTintColor: theme.colors.tint,
         tabBarInactiveTintColor: theme.colors.tabIconDefault,
