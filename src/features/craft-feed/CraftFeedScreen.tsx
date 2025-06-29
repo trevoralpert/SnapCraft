@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotifications } from '../../shared/components/NotificationSystem';
+import { CraftAlert } from '../../shared/components';
 import { 
   getPosts, 
   updatePostEngagement, 
@@ -30,6 +31,10 @@ import { AchievementService } from '../../services/achievements/AchievementServi
 
 // Task 4.2: Commenting System
 import CommentModal from '../../shared/components/CommentModal';
+
+// Task 4.3: Sharing Functionality
+import { SharingService } from '../../services/sharing/SharingService';
+import { SharingModal } from '../../shared/components';
 
 // Mock craft posts data for MVP demo
 const MOCK_CRAFT_POSTS: CraftPost[] = [
@@ -147,6 +152,28 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPostForComments, setSelectedPostForComments] = useState<CraftPost | null>(null);
 
+  // Task 4.3: Sharing Functionality
+  const [sharingModalVisible, setSharingModalVisible] = useState(false);
+  const [selectedPostForSharing, setSelectedPostForSharing] = useState<CraftPost | null>(null);
+
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    title: string;
+    message: string;
+    buttons: Array<{
+      text: string;
+      style?: 'default' | 'cancel' | 'destructive';
+      onPress?: () => void;
+    }>;
+    copyable: boolean;
+  }>({
+    title: '',
+    message: '',
+    buttons: [],
+    copyable: false,
+  });
+
   // Load posts from Firebase
   const loadPosts = async () => {
     try {
@@ -213,6 +240,30 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   useEffect(() => {
     loadPosts();
   }, [user]); // Reload when user authentication state changes
+
+  // Setup custom alert handler for SharingService
+  useEffect(() => {
+    const showCustomAlert = (
+      title: string,
+      message: string,
+      buttons?: Array<{
+        text: string;
+        style?: 'default' | 'cancel' | 'destructive';
+        onPress?: () => void;
+      }>,
+      copyable?: boolean
+    ) => {
+      setAlertConfig({
+        title,
+        message,
+        buttons: buttons || [{ text: 'OK', style: 'default' }],
+        copyable: copyable || false,
+      });
+      setAlertVisible(true);
+    };
+
+    SharingService.setCustomAlertHandler(showCustomAlert);
+  }, []);
 
   // Refresh feed
   const onRefresh = async () => {
@@ -307,12 +358,46 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   };
 
   const handleShare = (postId: string) => {
-    console.log('📤 Sharing post:', postId);
-    const message = 'Share feature coming soon! This will help spread craft knowledge across the community.';
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert(message);
+    console.log('📤 Opening sharing modal for post:', postId);
+    const post = posts.find(p => p.id === postId);
+    if (!post) {
+      showError('Share Error', 'Post not found');
+      return;
+    }
+
+    setSelectedPostForSharing(post);
+    setSharingModalVisible(true);
+  };
+
+  const handleShareComplete = (result: any) => {
+    if (result.success) {
+      showSuccess('Shared Successfully!', 'Thanks for spreading craft knowledge');
+      
+      // Track sharing analytics
+      SharingService.trackShareEvent(
+        selectedPostForSharing?.id || '', 
+        result.activityType || 'unknown', 
+        user?.id
+      );
+      
+      // Update post engagement (increment share count)
+      if (selectedPostForSharing) {
+        setPosts(prevPosts =>
+          prevPosts.map(p =>
+            p.id === selectedPostForSharing.id
+              ? {
+                  ...p,
+                  engagement: {
+                    ...p.engagement,
+                    shares: p.engagement.shares + 1
+                  }
+                }
+              : p
+          )
+        );
+      }
     } else {
-      Alert.alert('Share', message);
+      showError('Share Failed', result.error || 'Unable to share at this time');
     }
   };
 
@@ -382,9 +467,16 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
     console.log('🚨 Report submitted:', { postId, reason });
   };
 
-  const handleCopyLink = (postId: string) => {
-    // In a real app, this would copy the post URL to clipboard
-    showSuccess('Link copied!', 'Post link copied to clipboard');
+  const handleCopyLink = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const result = await SharingService.copyPostLink(post);
+    if (result.success) {
+      showSuccess('Link copied!', 'Post link copied to clipboard');
+    } else {
+      showError('Copy failed', result.error || 'Unable to copy link');
+    }
     setShowPostOptions(null);
   };
 
@@ -769,6 +861,27 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
           }}
         />
       )}
+
+      {/* Task 4.3: Custom Sharing Modal */}
+      <SharingModal
+        visible={sharingModalVisible}
+        post={selectedPostForSharing}
+        onClose={() => {
+          setSharingModalVisible(false);
+          setSelectedPostForSharing(null);
+        }}
+        onShareComplete={handleShareComplete}
+      />
+
+      {/* Custom Craft Alert */}
+      <CraftAlert
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        copyable={alertConfig.copyable}
+        onClose={() => setAlertVisible(false)}
+      />
     </SafeAreaView>
   );
 }

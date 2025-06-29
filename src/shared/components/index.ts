@@ -20,4 +20,8 @@ export { NotificationSystem, useNotifications } from './NotificationSystem';
 export { default as CommentInput } from './CommentInput';
 export { default as CommentList } from './CommentList';
 export { default as CommentItem } from './CommentItem';
-export { default as CommentModal } from './CommentModal'; 
+export { default as CommentModal } from './CommentModal';
+
+// Task 4.3: Sharing Components
+export { default as ShareButton } from './ShareButton';
+export { default as SharingModal } from './SharingModal'; 

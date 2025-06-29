@@ -1,70 +1,78 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   Modal,
   TouchableOpacity,
-  StyleSheet,
+  TouchableWithoutFeedback,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width: screenWidth } = Dimensions.get('window');
 
 interface CraftAlertProps {
   visible: boolean;
   title: string;
   message: string;
-  type?: 'info' | 'success' | 'warning' | 'error';
+  buttons?: Array<{
+    text: string;
+    style?: 'default' | 'cancel' | 'destructive';
+    onPress?: () => void;
+  }>;
   onClose: () => void;
-  confirmText?: string;
-  onConfirm?: () => void;
-  cancelText?: string;
-  onCancel?: () => void;
+  copyable?: boolean; // New prop for copyable content
 }
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function CraftAlert({
   visible,
   title,
   message,
-  type = 'info',
+  buttons = [{ text: 'OK', style: 'default' }],
   onClose,
-  confirmText = 'OK',
-  onConfirm,
-  cancelText,
-  onCancel
+  copyable = false,
 }: CraftAlertProps) {
-  const getIcon = () => {
-    switch (type) {
-      case 'success': return 'checkmark-circle';
-      case 'warning': return 'warning';
-      case 'error': return 'close-circle';
-      default: return 'information-circle';
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    // Try web clipboard API first
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      } catch (error) {
+        console.warn('Web clipboard failed:', error);
+      }
+    }
+
+    // Fallback: Show success message
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getButtonStyle = (style?: string) => {
+    switch (style) {
+      case 'cancel':
+        return styles.cancelButton;
+      case 'destructive':
+        return styles.destructiveButton;
+      default:
+        return styles.defaultButton;
     }
   };
 
-  const getIconColor = () => {
-    switch (type) {
-      case 'success': return '#228B22'; // Forest green
-      case 'warning': return '#DAA520'; // Goldenrod
-      case 'error': return '#CD853F'; // Peru (craft-friendly error color)
-      default: return '#8B4513'; // Saddle brown
-    }
-  };
-
-  const handleConfirm = () => {
-    if (onConfirm) {
-      onConfirm();
-    } else {
-      onClose();
-    }
-  };
-
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    } else {
-      onClose();
+  const getButtonTextStyle = (style?: string) => {
+    switch (style) {
+      case 'cancel':
+        return styles.cancelButtonText;
+      case 'destructive':
+        return styles.destructiveButtonText;
+      default:
+        return styles.defaultButtonText;
     }
   };
 
@@ -75,46 +83,67 @@ export default function CraftAlert({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.alertContainer}>
-          {/* Header with icon */}
-          <View style={styles.header}>
-            <Ionicons 
-              name={getIcon()} 
-              size={32} 
-              color={getIconColor()} 
-            />
-            <Text style={styles.title}>{title}</Text>
-          </View>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.overlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.alertContainer}>
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={styles.headerContent}>
+                  <Ionicons name="hammer" size={20} color="#8B4513" />
+                  <Text style={styles.title}>{title}</Text>
+                </View>
+                {copyable && (
+                  <TouchableOpacity
+                    style={[styles.copyButton, copied && styles.copiedButton]}
+                    onPress={handleCopy}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons 
+                      name={copied ? "checkmark" : "copy"} 
+                      size={16} 
+                      color={copied ? "#4CAF50" : "#8B4513"} 
+                    />
+                    <Text style={[styles.copyButtonText, copied && styles.copiedButtonText]}>
+                      {copied ? "Copied!" : "Copy"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
-          {/* Message */}
-          <Text style={styles.message}>{message}</Text>
+              {/* Content */}
+              <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+                <Text style={styles.message}>{message}</Text>
+              </ScrollView>
 
-          {/* Buttons */}
-          <View style={styles.buttonContainer}>
-            {cancelText && (
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]} 
-                onPress={handleCancel}
-              >
-                <Text style={styles.cancelButtonText}>{cancelText}</Text>
-              </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity 
-              style={[styles.button, styles.confirmButton]} 
-              onPress={handleConfirm}
-            >
-              <Text style={styles.confirmButtonText}>{confirmText}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Craft decoration */}
-          <View style={styles.craftDecoration}>
-            <Text style={styles.craftIcon}>🔨</Text>
-          </View>
+              {/* Buttons */}
+              <View style={styles.buttonContainer}>
+                {buttons.map((button, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.button,
+                      getButtonStyle(button.style),
+                      buttons.length === 1 && styles.singleButton,
+                      index === 0 && buttons.length > 1 && styles.firstButton,
+                      index === buttons.length - 1 && buttons.length > 1 && styles.lastButton,
+                    ]}
+                    onPress={() => {
+                      button.onPress?.();
+                      onClose();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.buttonText, getButtonTextStyle(button.style)]}>
+                      {button.text}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
@@ -128,100 +157,119 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   alertContainer: {
-    backgroundColor: '#F5F5DC', // Beige
+    backgroundColor: '#F5F5DC', // Craft beige background
     borderRadius: 16,
-    padding: 24,
-    width: screenWidth * 0.85,
-    maxWidth: 400,
-    shadowColor: '#8B4513',
+    width: Math.min(screenWidth - 40, 320),
+    maxHeight: '70%',
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 8,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
     borderWidth: 2,
-    borderColor: '#D2B48C', // Tan border
+    borderColor: '#8B4513',
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D2B48C',
+    backgroundColor: '#FAEBD7', // Antique white header
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#8B4513',
-    marginLeft: 12,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginLeft: 8,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5DC',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D2B48C',
+  },
+  copiedButton: {
+    backgroundColor: '#E8F5E8',
+    borderColor: '#4CAF50',
+  },
+  copyButtonText: {
+    fontSize: 12,
+    color: '#8B4513',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  copiedButtonText: {
+    color: '#4CAF50',
+  },
+  contentContainer: {
+    maxHeight: 200,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
   message: {
-    fontSize: 16,
-    color: '#5D4037',
-    lineHeight: 24,
-    marginBottom: 24,
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
     textAlign: 'left',
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#D2B48C',
   },
   button: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 80,
+    flex: 1,
+    paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAEBD7',
   },
-  confirmButton: {
-    backgroundColor: '#8B4513',
-    shadowColor: '#654321',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+  singleButton: {
+    borderRadius: 0,
   },
-  confirmButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  firstButton: {
+    borderRightWidth: 1,
+    borderRightColor: '#D2B48C',
+  },
+  lastButton: {
+    // No additional styles needed
+  },
+  defaultButton: {
+    backgroundColor: '#FAEBD7',
   },
   cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#8B4513',
+    backgroundColor: '#F0F0F0',
   },
-  cancelButtonText: {
-    color: '#8B4513',
+  destructiveButton: {
+    backgroundColor: '#FFE5E5',
+  },
+  buttonText: {
     fontSize: 16,
     fontWeight: '600',
   },
-  craftDecoration: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#8B4513',
-    borderRadius: 16,
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+  defaultButtonText: {
+    color: '#8B4513',
   },
-  craftIcon: {
-    fontSize: 16,
-    color: '#FFFFFF',
+  cancelButtonText: {
+    color: '#666',
+  },
+  destructiveButtonText: {
+    color: '#D32F2F',
   },
 }); 

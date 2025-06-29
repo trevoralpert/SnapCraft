@@ -11,6 +11,8 @@ import {
   Alert,
   Image,
   ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -330,6 +332,16 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
     setMode('photo');
   };
 
+  const handleTextInputDone = () => {
+    Keyboard.dismiss();
+    setShowTextInput(false);
+  };
+
+  const dismissTextInput = () => {
+    Keyboard.dismiss();
+    setShowTextInput(false);
+  };
+
   if (!permission || !microphonePermission) {
     return <View style={styles.container} />;
   }
@@ -524,29 +536,36 @@ export const CreateStoryScreen: React.FC<CreateStoryScreenProps> = ({
 
           {/* Text Input Modal */}
           {showTextInput && (
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Add Text</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={storyText}
-                  onChangeText={setStoryText}
-                  placeholder="What's happening?"
-                  placeholderTextColor="#999"
-                  multiline
-                  maxLength={100}
-                  autoFocus
-                />
-                <View style={styles.textInputButtons}>
-                  <TouchableOpacity
-                    style={styles.textInputButton}
-                    onPress={() => setShowTextInput(false)}
-                  >
-                    <Text style={styles.textInputButtonText}>Done</Text>
-                  </TouchableOpacity>
-                </View>
+            <TouchableWithoutFeedback onPress={dismissTextInput}>
+              <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Add Text</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={storyText}
+                      onChangeText={setStoryText}
+                      placeholder="What's happening?"
+                      placeholderTextColor="#999"
+                      multiline
+                      maxLength={100}
+                      autoFocus
+                      blurOnSubmit={true}
+                      onSubmitEditing={handleTextInputDone}
+                      returnKeyType="done"
+                    />
+                    <View style={styles.textInputButtons}>
+                      <TouchableOpacity
+                        style={styles.textInputButton}
+                        onPress={handleTextInputDone}
+                      >
+                        <Text style={styles.textInputButtonText}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
               </View>
-            </View>
+            </TouchableWithoutFeedback>
           )}
 
           {/* Main Controls */}

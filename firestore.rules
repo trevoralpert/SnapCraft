@@ -26,9 +26,12 @@ service cloud.firestore {
              request.auth.uid.size() > 0;
     }
     
-    // Users collection - users can only access their own data
+    // Users collection - users can read basic profile info of others, but only write their own data
     match /users/{userId} {
-      allow read, write: if isValidUser() && isOwner(userId);
+      // Allow authenticated users to read basic profile information of any user
+      allow read: if isValidUser();
+      // Only allow users to write/update their own data
+      allow write: if isValidUser() && isOwner(userId);
       allow create: if isValidUser() && isOwner(userId) && 
                     request.resource.data.keys().hasAll(['email', 'displayName', 'craftSpecialization', 'skillLevel']);
     }

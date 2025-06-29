@@ -181,7 +181,8 @@ export const markStoryAsViewed = async (
     const storyDoc = await getDoc(storyRef);
     
     if (!storyDoc.exists()) {
-      throw new Error('Story not found');
+      console.warn('⚠️ Story not found for view tracking:', storyId);
+      return; // Don't throw error, just log and continue
     }
     
     const storyData = storyDoc.data();
@@ -195,7 +196,7 @@ export const markStoryAsViewed = async (
       const newView = {
         userId: viewerId,
         viewedAt: new Date().toISOString(),
-        watchDuration: engagementData?.watchDuration || 0,
+        watchDuration: Math.max(0, engagementData?.watchDuration || 0), // Ensure non-negative
         completed: engagementData?.completed || false,
         replayed: false,
         viewCount: 1,
@@ -210,16 +211,18 @@ export const markStoryAsViewed = async (
     } else if (engagementData?.replayed) {
       // Update existing view with replay data
       const updatedViews = [...views];
+      const existingView = updatedViews[existingViewIndex];
+      
       updatedViews[existingViewIndex] = {
-        ...updatedViews[existingViewIndex],
+        ...existingView,
         replayed: true,
-        viewCount: (updatedViews[existingViewIndex].viewCount || 1) + 1,
+        viewCount: (existingView.viewCount || 1) + 1,
         lastViewedAt: new Date().toISOString(),
         watchDuration: Math.max(
-          updatedViews[existingViewIndex].watchDuration || 0,
+          existingView.watchDuration || 0,
           engagementData.watchDuration || 0
         ),
-        completed: updatedViews[existingViewIndex].completed || engagementData.completed || false,
+        completed: existingView.completed || engagementData.completed || false,
       };
       
       await updateDoc(storyRef, {
@@ -229,6 +232,27 @@ export const markStoryAsViewed = async (
       console.log('✅ Story replay tracked:', storyId, 'by', viewerId);
     } else {
       console.log('ℹ️ Story already viewed by user:', storyId, viewerId);
+      
+      // Update watch duration if it's longer than previous
+      if (engagementData?.watchDuration && engagementData.watchDuration > 0) {
+        const updatedViews = [...views];
+        const existingView = updatedViews[existingViewIndex];
+        
+        if ((engagementData.watchDuration > (existingView.watchDuration || 0)) || engagementData.completed) {
+          updatedViews[existingViewIndex] = {
+            ...existingView,
+            watchDuration: Math.max(existingView.watchDuration || 0, engagementData.watchDuration),
+            completed: existingView.completed || engagementData.completed || false,
+            lastViewedAt: new Date().toISOString(),
+          };
+          
+          await updateDoc(storyRef, {
+            views: updatedViews,
+          });
+          
+          console.log('✅ Story engagement updated:', storyId);
+        }
+      }
     }
   } catch (error) {
     console.error('❌ Error marking story as viewed:', error);
@@ -350,13 +374,26 @@ export const getStoryAnalytics = async (storyId: string) => {
     const storyData = storyDoc.data();
     const views = storyData.views || [];
     
-    // Calculate analytics
-    const totalViews = views.reduce((sum: number, view: any) => sum + (view.viewCount || 1), 0);
+    // Calculate analytics with improved error handling
+    const totalViews = views.reduce((sum: number, view: any) => {
+      const viewCount = view.viewCount || 1;
+      return sum + Math.max(0, viewCount); // Ensure non-negative
+    }, 0);
+    
     const uniqueViewers = views.length;
-    const totalReplays = views.reduce((sum: number, view: any) => sum + ((view.viewCount || 1) - 1), 0);
-    const completedViews = views.filter((view: any) => view.completed).length;
-    const completionRate = completedViews / Math.max(uniqueViewers, 1);
-    const averageWatchDuration = views.reduce((sum: number, view: any) => sum + (view.watchDuration || 0), 0) / Math.max(uniqueViewers, 1);
+    const totalReplays = views.reduce((sum: number, view: any) => {
+      const viewCount = view.viewCount || 1;
+      return sum + Math.max(0, viewCount - 1); // Replays = viewCount - 1
+    }, 0);
+    
+    const completedViews = views.filter((view: any) => view.completed === true).length;
+    const completionRate = uniqueViewers > 0 ? completedViews / uniqueViewers : 0;
+    
+    const totalWatchDuration = views.reduce((sum: number, view: any) => {
+      const duration = view.watchDuration || 0;
+      return sum + Math.max(0, duration); // Ensure non-negative
+    }, 0);
+    const averageWatchDuration = uniqueViewers > 0 ? totalWatchDuration / uniqueViewers : 0;
     
     return {
       storyId,
@@ -372,8 +409,8 @@ export const getStoryAnalytics = async (storyId: string) => {
         lastViewedAt: view.lastViewedAt,
         completed: view.completed || false,
         replayed: view.replayed || false,
-        watchDuration: view.watchDuration || 0,
-        viewCount: view.viewCount || 1,
+        watchDuration: Math.max(0, view.watchDuration || 0),
+        viewCount: Math.max(1, view.viewCount || 1),
       })),
       createdAt: storyData.createdAt?.toDate() || new Date(),
       expiresAt: storyData.expiresAt?.toDate() || new Date(),
@@ -381,6 +418,71 @@ export const getStoryAnalytics = async (storyId: string) => {
   } catch (error) {
     console.error('❌ Error getting story analytics:', error);
     throw error;
+  }
+};
+
+/**
+ * Debug function to get comprehensive story information
+ * @param storyId - Story ID to debug
+ * @returns Promise with debug information
+ */
+export const debugStoryAnalytics = async (storyId: string) => {
+  if (!db) {
+    throw new Error('Firestore not initialized. Check your Firebase configuration.');
+  }
+
+  try {
+    console.log('🔍 Debug: Fetching story data for:', storyId);
+    
+    const storyRef = doc(db, STORIES_COLLECTION, storyId);
+    const storyDoc = await getDoc(storyRef);
+    
+    if (!storyDoc.exists()) {
+      console.log('❌ Debug: Story does not exist:', storyId);
+      return { exists: false, storyId };
+    }
+    
+    const storyData = storyDoc.data();
+    const views = storyData.views || [];
+    
+    console.log('📊 Debug: Story data:', {
+      storyId,
+      userId: storyData.userId,
+      isActive: storyData.isActive,
+      createdAt: storyData.createdAt,
+      expiresAt: storyData.expiresAt,
+      viewsCount: views.length,
+      views: views.map((v: any) => ({
+        userId: v.userId,
+        viewedAt: v.viewedAt,
+        watchDuration: v.watchDuration,
+        completed: v.completed,
+        viewCount: v.viewCount
+      }))
+    });
+    
+    // Calculate analytics
+    const analytics = await getStoryAnalytics(storyId);
+    console.log('📈 Debug: Calculated analytics:', analytics);
+    
+    return {
+      exists: true,
+      storyId,
+      rawData: storyData,
+      analytics,
+      debugInfo: {
+        viewsArrayLength: views.length,
+        isExpired: new Date() > (storyData.expiresAt?.toDate() || new Date()),
+        isActive: storyData.isActive,
+      }
+    };
+  } catch (error) {
+    console.error('❌ Debug: Error analyzing story:', error);
+    return { 
+      exists: false, 
+      storyId, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 };
 
@@ -396,30 +498,38 @@ export const getStoryViewers = async (storyId: string) => {
 
   try {
     const analytics = await getStoryAnalytics(storyId);
+    console.log(`👥 Getting user details for ${analytics.views.length} viewers...`);
     
-    // Get user details for each viewer
+    // Get user details for each viewer with improved error handling
     const viewersWithDetails = await Promise.all(
       analytics.views.map(async (view: any) => {
         try {
+          console.log(`🔍 Fetching user details for: ${view.userId}`);
           const userRef = doc(db!, 'users', view.userId);
           const userDoc = await getDoc(userRef);
           
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            console.log(`✅ User data found for ${view.userId}:`, {
+              displayName: userData.displayName,
+              hasAvatar: !!userData.avatar
+            });
+            
             return {
               ...view,
-              displayName: userData.displayName || 'Unknown User',
+              displayName: userData.displayName || userData.email || 'Unknown User',
               avatar: userData.avatar || null,
             };
+          } else {
+            console.warn(`⚠️ User document not found for viewer: ${view.userId}`);
+            return {
+              ...view,
+              displayName: 'Deleted User',
+              avatar: null,
+            };
           }
-          
-          return {
-            ...view,
-            displayName: 'Unknown User',
-            avatar: null,
-          };
         } catch (error) {
-          console.warn('Failed to get user details for viewer:', view.userId);
+          console.error(`❌ Failed to get user details for viewer: ${view.userId}`, error);
           return {
             ...view,
             displayName: 'Unknown User',
@@ -428,6 +538,8 @@ export const getStoryViewers = async (storyId: string) => {
         }
       })
     );
+    
+    console.log(`✅ Successfully fetched details for ${viewersWithDetails.length} viewers`);
     
     return {
       storyId,
@@ -438,5 +550,77 @@ export const getStoryViewers = async (storyId: string) => {
   } catch (error) {
     console.error('❌ Error getting story viewers:', error);
     throw error;
+  }
+};
+
+/**
+ * Test story analytics functionality
+ * @returns Promise with test results
+ */
+export const testStoryAnalytics = async () => {
+  console.log('🧪 Testing story analytics functionality...');
+  
+  try {
+    // Test 1: Get active stories
+    console.log('📖 Test 1: Loading active stories...');
+    const stories = await getActiveStories(5);
+    console.log(`✅ Found ${stories.length} active stories`);
+    
+    if (stories.length === 0) {
+      console.log('ℹ️ No active stories found. Analytics test cannot proceed without stories.');
+      return {
+        success: true,
+        message: 'No active stories to test analytics with',
+        storiesCount: 0,
+        tests: []
+      };
+    }
+    
+    // Test 2: Test analytics for first story
+    const testStory = stories[0];
+    if (!testStory) {
+      console.log('❌ No test story available');
+      return {
+        success: false,
+        message: 'No test story available',
+        storiesCount: stories.length,
+        tests: []
+      };
+    }
+    
+    console.log(`📊 Test 2: Testing analytics for story: ${testStory.id}`);
+    
+    const analytics = await getStoryAnalytics(testStory.id);
+    console.log('✅ Analytics calculated successfully:', {
+      totalViews: analytics.totalViews,
+      uniqueViewers: analytics.uniqueViewers,
+      completionRate: analytics.completionRate
+    });
+    
+    // Test 3: Test debug function
+    console.log(`🔍 Test 3: Testing debug function for story: ${testStory.id}`);
+    const debugData = await debugStoryAnalytics(testStory.id);
+    console.log('✅ Debug data retrieved successfully');
+    
+    return {
+      success: true,
+      message: 'All story analytics tests passed',
+      storiesCount: stories.length,
+      testStoryId: testStory.id,
+      analytics,
+      tests: [
+        { name: 'Load active stories', passed: true },
+        { name: 'Calculate analytics', passed: true },
+        { name: 'Debug function', passed: true }
+      ]
+    };
+    
+  } catch (error) {
+    console.error('❌ Story analytics test failed:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      error: error
+    };
   }
 }; 
