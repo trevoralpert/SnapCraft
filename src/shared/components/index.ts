@@ -14,4 +14,10 @@ export { default as SkillProgressionHistory } from './SkillProgressionHistory';
 // Existing components
 export { CraftButton } from './CraftButton';
 export { LogoutButton } from './LogoutButton';
-export { NotificationSystem } from './NotificationSystem'; 
+export { NotificationSystem, useNotifications } from './NotificationSystem';
+
+// Task 4.2: Commenting System Components
+export { default as CommentInput } from './CommentInput';
+export { default as CommentList } from './CommentList';
+export { default as CommentItem } from './CommentItem';
+export { default as CommentModal } from './CommentModal'; 

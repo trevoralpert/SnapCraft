@@ -26,6 +26,10 @@ import { CraftPost, CraftStory } from '../../shared/types';
 import { StoriesBar, StoryViewer, CreateStoryScreen } from '../stories';
 import { AuthService } from '../../services/firebase/auth';
 import { auth, db, storage, isDemoMode, testFirebaseConnection } from '../../services/firebase/config';
+import { AchievementService } from '../../services/achievements/AchievementService';
+
+// Task 4.2: Commenting System
+import CommentModal from '../../shared/components/CommentModal';
 
 // Mock craft posts data for MVP demo
 const MOCK_CRAFT_POSTS: CraftPost[] = [
@@ -138,6 +142,10 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
   const [showCreateStory, setShowCreateStory] = useState(false);
   const [currentStories, setCurrentStories] = useState<CraftStory[]>([]);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+
+  // Task 4.2: Commenting System
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<CraftPost | null>(null);
 
   // Load posts from Firebase
   const loadPosts = async () => {
@@ -291,11 +299,10 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
 
   const handleComment = (postId: string) => {
     console.log('💬 Opening comments for post:', postId);
-    const message = 'Comments feature coming soon! This will allow craftsmen to share techniques and ask questions.';
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert(message);
-    } else {
-      Alert.alert('Comments', message);
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      setSelectedPostForComments(post);
+      setCommentModalVisible(true);
     }
   };
 
@@ -732,6 +739,36 @@ export default function CraftFeedScreen({ onCreatePost }: CraftFeedScreenProps) 
           />
         )}
       </Modal>
+
+      {/* Task 4.2: Comment Modal */}
+      {selectedPostForComments && (
+        <CommentModal
+          visible={commentModalVisible}
+          postId={selectedPostForComments.id}
+          postAuthor={selectedPostForComments.author.displayName}
+          initialCommentCount={selectedPostForComments.engagement.comments}
+          onClose={() => {
+            setCommentModalVisible(false);
+            setSelectedPostForComments(null);
+          }}
+          onCommentCountChange={(count) => {
+            // Update post comment count in local state
+            setPosts(prevPosts =>
+              prevPosts.map(post =>
+                post.id === selectedPostForComments.id
+                  ? {
+                      ...post,
+                      engagement: {
+                        ...post.engagement,
+                        comments: count
+                      }
+                    }
+                  : post
+              )
+            );
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

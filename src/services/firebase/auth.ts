@@ -57,6 +57,7 @@ export class AuthService {
         id: firebaseUser.uid,
         email: firebaseUser.email!,
         displayName,
+        avatar: '👤', // Add default avatar
         craftSpecialization,
         skillLevel,
         toolInventory: [],
@@ -156,6 +157,7 @@ export class AuthService {
               id: firebaseUser.uid,
               email: firebaseUser.email!,
               displayName: firebaseUser.displayName || 'SnapCraft User',
+              avatar: '👤', // Add default avatar
               craftSpecialization: ['general'],
               skillLevel: 'novice',
               toolInventory: [],

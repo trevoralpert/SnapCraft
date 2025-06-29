@@ -61,6 +61,9 @@ export interface CraftPost {
   commentedBy?: string[]; // Array of user IDs who commented on this post
   sharedBy?: string[]; // Array of user IDs who shared this post
   savedBy?: string[]; // Array of user IDs who saved this post
+  // Social Features - Task 4.2: Commenting System
+  comments?: Comment[]; // Array of comments for this post
+  commentCount?: number; // Total number of comments (including replies)
   isEphemeral: boolean;
   expiresAt?: Date;
   // Project Scoring Fields
@@ -82,6 +85,96 @@ export interface CraftPost {
       reviewRequired: boolean; // Whether human review is needed
       reviewReason?: string; // Reason for human review flag
     };
+  };
+}
+
+export interface Comment {
+  id: string;
+  postId: string; // ID of the post this comment belongs to
+  userId: string; // ID of the user who made the comment
+  author: {
+    id: string;
+    displayName: string;
+    avatar?: string;
+  };
+  content: {
+    text: string; // The comment text (max 500 characters)
+    mentions?: string[]; // Array of user IDs mentioned in the comment
+    hashtags?: string[]; // Array of hashtags in the comment
+  };
+  createdAt: Date;
+  updatedAt: Date;
+  // Reply functionality
+  parentCommentId?: string; // If this is a reply, ID of the parent comment
+  replies?: Comment[]; // Array of replies to this comment
+  replyCount: number; // Number of direct replies
+  // Engagement
+  engagement: {
+    likes: number;
+    replies: number;
+  };
+  likedBy?: string[]; // Array of user IDs who liked this comment
+  // Moderation
+  isDeleted: boolean; // Soft delete flag
+  isHidden: boolean; // Hidden by moderation
+  isEdited: boolean; // Whether the comment has been edited
+  editHistory?: CommentEdit[]; // History of edits
+  moderationFlags?: ModerationFlag[]; // Moderation flags
+  // Threading depth (to prevent infinite nesting)
+  depth: number; // 0 = top-level comment, 1 = first reply, etc. (max 3)
+}
+
+export interface CommentEdit {
+  editedAt: Date;
+  previousText: string;
+  editReason?: string;
+}
+
+export interface ModerationFlag {
+  id: string;
+  flaggedBy: string; // User ID who flagged
+  reason: ModerationReason;
+  flaggedAt: Date;
+  status: 'pending' | 'reviewed' | 'dismissed';
+  reviewedBy?: string; // Moderator user ID
+  reviewedAt?: Date;
+  reviewNotes?: string;
+}
+
+export type ModerationReason = 
+  | 'spam'
+  | 'harassment'
+  | 'inappropriate'
+  | 'offensive'
+  | 'misinformation'
+  | 'copyright'
+  | 'other';
+
+export interface CommentInput {
+  postId: string;
+  text: string;
+  parentCommentId?: string; // For replies
+  mentions?: string[]; // User IDs mentioned
+}
+
+export interface CommentThread {
+  topLevelComment: Comment;
+  replies: Comment[];
+  totalReplies: number;
+  hasMoreReplies: boolean;
+}
+
+export interface CommentAnalytics {
+  postId: string;
+  totalComments: number;
+  totalReplies: number;
+  topCommenters: { userId: string; displayName: string; commentCount: number }[];
+  engagementRate: number; // Comments per post view
+  averageCommentLength: number;
+  sentimentAnalysis?: {
+    positive: number;
+    neutral: number;
+    negative: number;
   };
 }
 

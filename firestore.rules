@@ -44,8 +44,11 @@ service cloud.firestore {
                     request.resource.data.content.description is string &&
                     request.resource.data.content.description.size() <= 1000;
       allow update: if isValidUser() && 
-                    isOwnerOfResource() &&
-                    request.resource.data.userId == resource.data.userId; // Prevent userId changes
+                    (isOwnerOfResource() || // Owner can update all fields
+                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'engagement', 'updatedAt']) &&
+                      request.resource.data.userId == resource.data.userId) || // Any user can update likes/engagement
+                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['engagement', 'updatedAt']) &&
+                      request.resource.data.userId == resource.data.userId)); // Any user can update comment counts
       allow delete: if isValidUser() && isOwnerOfResource();
     }
     
@@ -71,14 +74,18 @@ service cloud.firestore {
       allow read: if isValidUser();
       allow create: if isValidUser() && 
                     isOwnerOfRequest() &&
-                    request.resource.data.keys().hasAll(['userId', 'postId', 'content', 'createdAt']) &&
-                    request.resource.data.content is string &&
-                    request.resource.data.content.size() <= 500 &&
-                    request.resource.data.postId is string;
+                    request.resource.data.keys().hasAll(['userId', 'postId', 'content', 'author', 'createdAt']) &&
+                    request.resource.data.content is map &&
+                    request.resource.data.content.keys().hasAll(['text']) &&
+                    request.resource.data.content.text is string &&
+                    request.resource.data.content.text.size() <= 500 &&
+                    request.resource.data.postId is string &&
+                    request.resource.data.author is map &&
+                    request.resource.data.author.keys().hasAll(['id', 'displayName']);
       allow update: if isValidUser() && 
-                    isOwnerOfResource() &&
-                    request.resource.data.userId == resource.data.userId &&
-                    request.resource.data.postId == resource.data.postId; // Prevent postId changes
+                    (isOwnerOfResource() || // Owner can update all fields
+                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'engagement', 'updatedAt']) &&
+                      request.resource.data.userId == resource.data.userId)); // Any user can update likes/engagement
       allow delete: if isValidUser() && isOwnerOfResource();
     }
     

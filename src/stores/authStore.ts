@@ -28,6 +28,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         id: 'demo-user-123',
         email: email,
         displayName: 'Demo Crafter',
+        avatar: '🔨', // Add demo avatar
         craftSpecialization: ['woodworking', 'blacksmithing'],
         skillLevel: 'journeyman',
         bio: 'Demo user for testing SnapCraft features',
@@ -63,6 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         id: 'demo-user-456',
         email: email,
         displayName: displayName,
+        avatar: '👤', // Add demo avatar
         craftSpecialization: [],
         skillLevel: 'novice',
         bio: '',
