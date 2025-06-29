@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Modal,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { User, CraftSpecialization, SkillLevel } from '../../shared/types';
 import { CraftButton } from '../../shared/components/CraftButton';
@@ -20,6 +21,8 @@ import { UserSkillLevelService } from '../../services/scoring/UserSkillLevelServ
 import { AuthService } from '../../services/firebase/auth';
 import { formatFirebaseDate } from '../../shared/utils/date';
 import ScoringHistoryScreen from './ScoringHistoryScreen';
+import { Ionicons } from '@expo/vector-icons';
+import { AchievementService } from '../../services/achievements/AchievementService';
 
 const craftSpecializations: { key: CraftSpecialization; label: string; emoji: string }[] = [
   { key: 'woodworking', label: 'Woodworking', emoji: '🪵' },
@@ -45,6 +48,7 @@ const skillLevels: { key: SkillLevel; label: string; description: string }[] = [
 
 export function ProfileScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
   
   // Debug logging (can be removed in production)
   const isAuthenticated = !!user;
@@ -65,6 +69,12 @@ export function ProfileScreen() {
   } | null>(null);
   const [userProjects, setUserProjects] = useState<any[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [achievementStats, setAchievementStats] = useState({
+    unlockedCount: 0,
+    totalCount: 0,
+    totalPoints: 0,
+    recentAchievements: [] as any[]
+  });
   const [formData, setFormData] = useState({
     displayName: '',
     bio: '',
@@ -530,12 +540,91 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {/* Tool Inventory Preview */}
+        {/* Project Creation Walkthrough */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tool Inventory</Text>
-          <Text style={styles.comingSoon}>
-            📦 Tool inventory management coming soon! Track your tools, share with the community, and discover new additions.
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🎯 Project Creation Walkthrough</Text>
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>GUIDE</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.walkthroughDescription}>
+            Get step-by-step guidance for your first craft project. Choose from beginner-friendly templates designed to help you learn fundamental skills.
           </Text>
+          
+          <TouchableOpacity 
+            style={styles.walkthroughCard}
+            onPress={() => {
+              // Navigate to first project
+              router.push('/first-project');
+            }}
+          >
+            <View style={styles.walkthroughHeader}>
+              <Ionicons name="hammer" size={24} color="#8B4513" />
+              <Text style={styles.walkthroughTitle}>Start Your First Project</Text>
+            </View>
+            <Text style={styles.walkthroughSubtitle}>
+              Choose from woodworking, leathercraft, or metalworking templates
+            </Text>
+            <View style={styles.walkthroughStats}>
+              <View style={styles.walkthroughStat}>
+                <Text style={styles.walkthroughStatNumber}>3</Text>
+                <Text style={styles.walkthroughStatLabel}>Templates</Text>
+              </View>
+              <View style={styles.walkthroughStat}>
+                <Text style={styles.walkthroughStatNumber}>~2h</Text>
+                <Text style={styles.walkthroughStatLabel}>Duration</Text>
+              </View>
+              <View style={styles.walkthroughStat}>
+                <Text style={styles.walkthroughStatNumber}>📚</Text>
+                <Text style={styles.walkthroughStatLabel}>Beginner</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Analytics Dashboard */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>📊 Analytics Dashboard</Text>
+            <View style={styles.dataBadge}>
+              <Text style={styles.dataBadgeText}>INSIGHTS</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.analyticsDescription}>
+            Track your onboarding progress, tutorial completion, and learning journey with detailed analytics and insights.
+          </Text>
+          
+          <TouchableOpacity 
+            style={styles.analyticsCard}
+            onPress={() => {
+              router.push('/analytics');
+            }}
+          >
+            <View style={styles.analyticsHeader}>
+              <Ionicons name="analytics" size={24} color="#2196F3" />
+              <Text style={styles.analyticsTitle}>View Full Dashboard</Text>
+            </View>
+            <Text style={styles.analyticsSubtitle}>
+              Onboarding analytics, tutorial progress, and user journey insights
+            </Text>
+            <View style={styles.analyticsPreview}>
+              <View style={styles.analyticsStat}>
+                <Text style={styles.analyticsStatNumber}>5/5</Text>
+                <Text style={styles.analyticsStatLabel}>Onboarding</Text>
+              </View>
+              <View style={styles.analyticsStat}>
+                <Text style={styles.analyticsStatNumber}>2/3</Text>
+                <Text style={styles.analyticsStatLabel}>Tutorials</Text>
+              </View>
+              <View style={styles.analyticsStat}>
+                <Text style={styles.analyticsStatNumber}>✨</Text>
+                <Text style={styles.analyticsStatLabel}>Insights</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.bottomSpacing} />
@@ -741,13 +830,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
   },
-  comingSoon: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    padding: 20,
-  },
+
   bottomSpacing: {
     height: 20,
   },
@@ -926,6 +1009,112 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   noProjectsSubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  newBadge: {
+    padding: 6,
+    backgroundColor: '#4CAF50',
+    borderRadius: 6,
+  },
+  newBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  walkthroughDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  walkthroughCard: {
+    padding: 12,
+    backgroundColor: '#F9F5F1',
+    borderRadius: 8,
+  },
+  walkthroughHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  walkthroughTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginLeft: 8,
+  },
+  walkthroughSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  walkthroughStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  walkthroughStat: {
+    alignItems: 'center',
+  },
+  walkthroughStatNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  walkthroughStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  dataBadge: {
+    padding: 6,
+    backgroundColor: '#4CAF50',
+    borderRadius: 6,
+  },
+  dataBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  analyticsDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  analyticsCard: {
+    padding: 12,
+    backgroundColor: '#F9F5F1',
+    borderRadius: 8,
+  },
+  analyticsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  analyticsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginLeft: 8,
+  },
+  analyticsSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  analyticsPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  analyticsStat: {
+    alignItems: 'center',
+  },
+  analyticsStatNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  analyticsStatLabel: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,

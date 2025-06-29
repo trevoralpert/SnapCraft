@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,148 +7,188 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
+import { AchievementService, ScoreBasedAchievement } from '../../services/achievements/AchievementService';
 
-// Achievement categories
+// Achievement categories based on real achievement types
 const ACHIEVEMENT_CATEGORIES = [
-  { id: 'all', label: 'All Achievements', emoji: '🏆', count: 24 },
-  { id: 'crafting', label: 'Crafting', emoji: '🔨', count: 8 },
-  { id: 'social', label: 'Social', emoji: '👥', count: 6 },
-  { id: 'learning', label: 'Learning', emoji: '📚', count: 5 },
-  { id: 'tools', label: 'Tools', emoji: '🛠️', count: 5 },
+  { id: 'all', label: 'All Achievements', emoji: '🏆' },
+  { id: 'onboarding', label: 'Getting Started', emoji: '🎯' },
+  { id: 'tutorials', label: 'Learning', emoji: '📚' },
+  { id: 'projects', label: 'Projects', emoji: '🔨' },
+  { id: 'skills', label: 'Skills', emoji: '⭐' },
+  { id: 'scoring', label: 'Scoring', emoji: '📊' },
 ];
 
-// Mock achievements data
-const MOCK_ACHIEVEMENTS = [
-  {
-    id: '1',
-    title: 'First Steps',
-    description: 'Create your first craft post',
-    category: 'crafting',
-    difficulty: 'beginner',
-    points: 10,
-    emoji: '👶',
-    isUnlocked: true,
-    unlockedAt: new Date('2024-06-20'),
-    progress: 1,
-    maxProgress: 1,
-  },
-  {
-    id: '2',
-    title: 'Tool Collector',
-    description: 'Add 5 tools to your inventory',
-    category: 'tools',
-    difficulty: 'beginner',
-    points: 25,
-    emoji: '🧰',
-    isUnlocked: true,
-    unlockedAt: new Date('2024-06-21'),
-    progress: 5,
-    maxProgress: 5,
-  },
-  {
-    id: '3',
-    title: 'Knowledge Seeker',
-    description: 'Read 10 knowledge base articles',
-    category: 'learning',
-    difficulty: 'intermediate',
-    points: 50,
-    emoji: '📖',
-    isUnlocked: false,
-    unlockedAt: null,
-    progress: 7,
-    maxProgress: 10,
-  },
-  {
-    id: '4',
-    title: 'Master Craftsman',
-    description: 'Complete 25 craft projects',
-    category: 'crafting',
-    difficulty: 'expert',
-    points: 200,
-    emoji: '👑',
-    isUnlocked: false,
-    unlockedAt: null,
-    progress: 3,
-    maxProgress: 25,
-  },
-  {
-    id: '5',
-    title: 'Community Builder',
-    description: 'Receive 100 likes on your posts',
-    category: 'social',
-    difficulty: 'intermediate',
-    points: 75,
-    emoji: '❤️',
-    isUnlocked: false,
-    unlockedAt: null,
-    progress: 24,
-    maxProgress: 100,
-  },
-  {
-    id: '6',
-    title: 'Helping Hand',
-    description: 'Comment on 20 community posts',
-    category: 'social',
-    difficulty: 'beginner',
-    points: 30,
-    emoji: '🤝',
-    isUnlocked: false,
-    unlockedAt: null,
-    progress: 12,
-    maxProgress: 20,
-  },
-  {
-    id: '7',
-    title: 'Woodworking Apprentice',
-    description: 'Complete 5 woodworking projects',
-    category: 'crafting',
-    difficulty: 'intermediate',
-    points: 60,
-    emoji: '🪵',
-    isUnlocked: false,
-    unlockedAt: null,
-    progress: 2,
-    maxProgress: 5,
-  },
-  {
-    id: '8',
-    title: 'Safety First',
-    description: 'Read all safety articles',
-    category: 'learning',
-    difficulty: 'beginner',
-    points: 40,
-    emoji: '🥽',
-    isUnlocked: true,
-    unlockedAt: new Date('2024-06-19'),
-    progress: 15,
-    maxProgress: 15,
-  },
-];
+interface AchievementWithProgress extends ScoreBasedAchievement {
+  isUnlocked: boolean;
+  unlockedAt?: Date;
+  progress: number;
+  maxProgress: number;
+  category: string;
+}
 
 export default function AchievementsScreen() {
   const { user } = useAuthStore();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [achievements, setAchievements] = useState<AchievementWithProgress[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [achievementStats, setAchievementStats] = useState({
+    unlockedCount: 0,
+    totalCount: 0,
+    totalPoints: 0,
+    progressByCategory: {} as Record<string, { unlocked: number; total: number }>
+  });
+
+  useEffect(() => {
+    if (user) {
+      loadAchievements();
+    }
+  }, [user]);
+
+  const loadAchievements = async () => {
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const achievementService = AchievementService.getInstance();
+      
+      console.log('🏆 AchievementsScreen - User data for achievements:', {
+        onboarding: user.onboarding,
+        tutorialProgress: user.tutorialProgress,
+        firstProjectGuidance: user.firstProjectGuidance,
+        skillLevel: user.skillLevel,
+        craftSpecialization: user.craftSpecialization
+      });
+      
+      // Calculate user achievements based on real data
+      const result = await achievementService.calculateUserAchievements({
+        onboarding: user.onboarding,
+        tutorialProgress: user.tutorialProgress,
+        firstProjectGuidance: user.firstProjectGuidance,
+        skillLevel: user.skillLevel || 'novice',
+        craftSpecialization: user.craftSpecialization || [],
+        projectCount: 0, // TODO: Get from posts collection
+        recentScores: [], // TODO: Get from scoring history
+        existingAchievements: [] // TODO: Get from user achievements collection
+      });
+
+      console.log('🏆 Achievement calculation result:', result);
+
+      // Get all achievements and map them to include progress
+      const allAchievements = achievementService.getAllAchievements();
+      const achievementsWithProgress: AchievementWithProgress[] = allAchievements.map(achievement => {
+        const isUnlocked = result.unlockedAchievements.some(ua => ua.id === achievement.id);
+        const progress = calculateProgress(achievement, user);
+        const maxProgress = getMaxProgress(achievement);
+        
+        console.log(`🏆 Achievement ${achievement.id}:`, {
+          isUnlocked,
+          progress,
+          maxProgress,
+          trigger: achievement.trigger
+        });
+        
+        return {
+          ...achievement,
+          isUnlocked,
+          unlockedAt: isUnlocked ? new Date() : undefined,
+          progress,
+          maxProgress,
+          category: getCategoryFromAchievement(achievement)
+        };
+      });
+
+      console.log('🏆 Sample achievements with progress:', achievementsWithProgress.slice(0, 5));
+
+      setAchievements(achievementsWithProgress);
+      setAchievementStats({
+        unlockedCount: result.unlockedAchievements.length,
+        totalCount: result.totalAchievements,
+        totalPoints: result.achievementPoints,
+        progressByCategory: result.progressByCategory
+      });
+
+      console.log('🏆 Final achievement stats:', {
+        total: achievementsWithProgress.length,
+        unlocked: result.unlockedAchievements.length,
+        points: result.achievementPoints,
+        unlockedIds: result.unlockedAchievements.map(a => a.id)
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to load achievements:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculateProgress = (achievement: ScoreBasedAchievement, userData: any): number => {
+    switch (achievement.trigger.type) {
+      case 'onboarding':
+        return userData.onboarding?.completed ? 1 : (userData.onboarding?.stepsCompleted?.length || 0);
+      
+      case 'tutorial':
+        if (achievement.trigger.tutorialId) {
+          const progress = userData.tutorialProgress?.[achievement.trigger.tutorialId];
+          return progress?.completedAt ? 1 : 0;
+        } else if (achievement.trigger.threshold) {
+          // All tutorials achievement
+          const completed = Object.values(userData.tutorialProgress || {})
+            .filter((p: any) => p.completedAt).length;
+          return Math.min(completed, achievement.trigger.threshold);
+        }
+        return 0;
+      
+      case 'first_project':
+        return userData.firstProjectGuidance?.startedAt ? 1 : 0;
+      
+      case 'skill_level':
+        const levelOrder = ['novice', 'apprentice', 'journeyman', 'craftsman', 'master'];
+        const currentIndex = levelOrder.indexOf(userData.skillLevel || 'novice');
+        const targetIndex = levelOrder.indexOf(achievement.trigger.skillLevel || 'novice');
+        return currentIndex >= targetIndex ? 1 : 0;
+      
+      default:
+        return 0;
+    }
+  };
+
+  const getMaxProgress = (achievement: ScoreBasedAchievement): number => {
+    switch (achievement.trigger.type) {
+      case 'onboarding':
+        return achievement.id === 'welcome_aboard' ? 5 : 1; // 5 onboarding steps
+      case 'tutorial':
+        return achievement.trigger.threshold || 1;
+      case 'project_count':
+        return achievement.trigger.threshold || 1;
+      default:
+        return 1;
+    }
+  };
+
+  const getCategoryFromAchievement = (achievement: ScoreBasedAchievement): string => {
+    if (['welcome_aboard', 'craft_specialist'].includes(achievement.id)) return 'onboarding';
+    if (['camera_master', 'tool_identifier', 'documentation_pro', 'tutorial_graduate'].includes(achievement.id)) return 'tutorials';
+    if (['first_project_started', 'first_score', 'prolific_creator'].includes(achievement.id)) return 'projects';
+    if (['apprentice_level', 'journeyman_level', 'craftsman_level', 'master_level'].includes(achievement.id)) return 'skills';
+    if (['score_70', 'score_85', 'perfect_score', 'improvement_streak'].includes(achievement.id)) return 'scoring';
+    return 'other';
+  };
 
   // Filter achievements by category
-  const filteredAchievements = MOCK_ACHIEVEMENTS.filter(achievement => 
+  const filteredAchievements = achievements.filter(achievement => 
     selectedCategory === 'all' || achievement.category === selectedCategory
   );
 
-  // Calculate stats
-  const unlockedCount = MOCK_ACHIEVEMENTS.filter(a => a.isUnlocked).length;
-  const totalPoints = MOCK_ACHIEVEMENTS
-    .filter(a => a.isUnlocked)
-    .reduce((sum, a) => sum + a.points, 0);
-
-  const getDifficultyColor = (difficulty: string): string => {
-    switch (difficulty) {
-      case 'beginner': return '#4CAF50';
-      case 'intermediate': return '#FF9800';
-      case 'advanced': return '#F44336';
-      case 'expert': return '#9C27B0';
+  const getRarityColor = (rarity: string): string => {
+    switch (rarity) {
+      case 'common': return '#4CAF50';
+      case 'rare': return '#FF9800';
+      case 'legendary': return '#9C27B0';
       default: return '#757575';
     }
   };
@@ -157,7 +197,7 @@ export default function AchievementsScreen() {
     return Math.min((progress / maxProgress) * 100, 100);
   };
 
-  const renderAchievementItem = ({ item }: { item: typeof MOCK_ACHIEVEMENTS[0] }) => {
+  const renderAchievementItem = ({ item }: { item: AchievementWithProgress }) => {
     const progressPercentage = getProgressPercentage(item.progress, item.maxProgress);
     
     return (
@@ -165,7 +205,7 @@ export default function AchievementsScreen() {
         <View style={styles.achievementHeader}>
           <View style={styles.achievementInfo}>
             <Text style={[styles.achievementEmoji, !item.isUnlocked && styles.lockedEmoji]}>
-              {item.isUnlocked ? item.emoji : '🔒'}
+              {item.isUnlocked ? item.icon : '🔒'}
             </Text>
             <View style={styles.achievementDetails}>
               <Text style={[styles.achievementTitle, !item.isUnlocked && styles.lockedText]}>
@@ -177,10 +217,12 @@ export default function AchievementsScreen() {
             </View>
           </View>
           <View style={styles.achievementMeta}>
-            <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.difficulty) }]}>
-              <Text style={styles.difficultyText}>{item.difficulty}</Text>
+            <View style={[styles.rarityBadge, { backgroundColor: getRarityColor(item.rarity) }]}>
+              <Text style={styles.rarityText}>{item.rarity}</Text>
             </View>
-            <Text style={styles.pointsText}>+{item.points} pts</Text>
+            <Text style={styles.pointsText}>
+              +{item.rarity === 'common' ? 10 : item.rarity === 'rare' ? 25 : 50} pts
+            </Text>
           </View>
         </View>
 
@@ -202,52 +244,45 @@ export default function AchievementsScreen() {
           </Text>
         </View>
 
-        {/* Unlock Date */}
         {item.isUnlocked && item.unlockedAt && (
-          <View style={styles.unlockedContainer}>
-            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-            <Text style={styles.unlockedText}>
-              Unlocked {item.unlockedAt.toLocaleDateString()}
-            </Text>
-          </View>
+          <Text style={styles.unlockedText}>
+            Unlocked {item.unlockedAt.toLocaleDateString()}
+          </Text>
         )}
       </View>
     );
   };
 
-  const renderCategoryButton = (category: typeof ACHIEVEMENT_CATEGORIES[0]) => (
-    <TouchableOpacity
-      key={category.id}
-      style={[
-        styles.categoryButton,
-        selectedCategory === category.id && styles.categoryButtonSelected,
-      ]}
-      onPress={() => setSelectedCategory(category.id)}
-    >
-      <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-      <Text style={[
-        styles.categoryLabel,
-        selectedCategory === category.id && styles.categoryLabelSelected,
-      ]}>
-        {category.label}
-      </Text>
-      <Text style={[
-        styles.categoryCount,
-        selectedCategory === category.id && styles.categoryCountSelected,
-      ]}>
-        {category.count}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderCategoryButton = (category: typeof ACHIEVEMENT_CATEGORIES[0]) => {
+    const isSelected = selectedCategory === category.id;
+    const categoryStats = achievementStats.progressByCategory[category.id];
+    const count = category.id === 'all' ? achievementStats.totalCount : (categoryStats?.total || 0);
+    
+    return (
+      <TouchableOpacity
+        key={category.id}
+        style={[styles.categoryButton, isSelected && styles.categoryButtonSelected]}
+        onPress={() => setSelectedCategory(category.id)}
+      >
+        <Text style={[styles.categoryEmoji, isSelected && styles.categoryEmojiSelected]}>
+          {category.emoji}
+        </Text>
+        <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
+          {category.label}
+        </Text>
+        <Text style={[styles.categoryCount, isSelected && styles.categoryCountSelected]}>
+          {count}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
-  if (!user) {
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.authRequiredContainer}>
-          <Text style={styles.authRequiredTitle}>Login Required</Text>
-          <Text style={styles.authRequiredText}>
-            Please log in to view your achievements.
-          </Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B4513" />
+          <Text style={styles.loadingText}>Loading achievements...</Text>
         </View>
       </SafeAreaView>
     );
@@ -258,24 +293,24 @@ export default function AchievementsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🏆 Achievements</Text>
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>{unlockedCount}/{MOCK_ACHIEVEMENTS.length}</Text>
-        </View>
+        <Text style={styles.headerSubtitle}>
+          {achievementStats.unlockedCount} of {achievementStats.totalCount} unlocked
+        </Text>
       </View>
 
-      {/* Stats Overview */}
-      <View style={styles.overviewContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{unlockedCount}</Text>
+      {/* Stats */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{achievementStats.unlockedCount}</Text>
           <Text style={styles.statLabel}>Unlocked</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{totalPoints}</Text>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{achievementStats.totalPoints}</Text>
           <Text style={styles.statLabel}>Points</Text>
         </View>
-        <View style={styles.statCard}>
+        <View style={styles.statItem}>
           <Text style={styles.statNumber}>
-            {Math.round((unlockedCount / MOCK_ACHIEVEMENTS.length) * 100)}%
+            {Math.round((achievementStats.unlockedCount / achievementStats.totalCount) * 100)}%
           </Text>
           <Text style={styles.statLabel}>Complete</Text>
         </View>
@@ -284,9 +319,9 @@ export default function AchievementsScreen() {
       {/* Category Filter */}
       <ScrollView 
         horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.categoriesScroll}
-        contentContainerStyle={styles.categoriesContainer}
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryScrollView}
+        contentContainerStyle={styles.categoryContainer}
       >
         {ACHIEVEMENT_CATEGORIES.map(renderCategoryButton)}
       </ScrollView>
@@ -296,16 +331,8 @@ export default function AchievementsScreen() {
         data={filteredAchievements}
         renderItem={renderAchievementItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.achievementsList}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No achievements found</Text>
-            <Text style={styles.emptySubtext}>
-              Start crafting to unlock your first achievements!
-            </Text>
-          </View>
-        }
+        contentContainerStyle={styles.achievementsList}
       />
     </SafeAreaView>
   );
@@ -316,46 +343,43 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5DC',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#8B4513',
+  },
+  header: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#8B4513',
   },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 4,
+  },
   statsContainer: {
-    backgroundColor: '#F9F5F1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#8B4513',
-  },
-  statsText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8B4513',
-  },
-  overviewContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    justifyContent: 'space-around',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
   },
-  statCard: {
-    flex: 1,
+  statItem: {
     alignItems: 'center',
-    paddingVertical: 10,
   },
   statNumber: {
     fontSize: 24,
@@ -367,59 +391,56 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
-  categoriesScroll: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  categoryScrollView: {
+    marginBottom: 16,
   },
-  categoriesContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+  categoryContainer: {
+    paddingHorizontal: 16,
   },
   categoryButton: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 12,
-    marginRight: 12,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
     alignItems: 'center',
     minWidth: 80,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   categoryButtonSelected: {
-    backgroundColor: '#F9F5F1',
-    borderColor: '#8B4513',
+    backgroundColor: '#8B4513',
   },
   categoryEmoji: {
-    fontSize: 20,
-    marginBottom: 6,
-  },
-  categoryLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
+    fontSize: 16,
     marginBottom: 2,
   },
+  categoryEmojiSelected: {
+    // No change needed
+  },
+  categoryLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
   categoryLabelSelected: {
-    color: '#8B4513',
+    color: '#fff',
   },
   categoryCount: {
     fontSize: 10,
-    color: '#666',
+    color: '#999',
+    marginTop: 2,
   },
   categoryCountSelected: {
-    color: '#8B4513',
+    color: '#E0E0E0',
   },
   achievementsList: {
-    paddingHorizontal: 20,
-    paddingTop: 15,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
   achievementCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -438,11 +459,10 @@ const styles = StyleSheet.create({
   },
   achievementInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
     flex: 1,
   },
   achievementEmoji: {
-    fontSize: 24,
+    fontSize: 32,
     marginRight: 12,
   },
   lockedEmoji: {
@@ -453,14 +473,14 @@ const styles = StyleSheet.create({
   },
   achievementTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
     marginBottom: 4,
   },
   achievementDescription: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   lockedText: {
     color: '#999',
@@ -468,21 +488,22 @@ const styles = StyleSheet.create({
   achievementMeta: {
     alignItems: 'flex-end',
   },
-  difficultyBadge: {
+  rarityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  difficultyText: {
+  rarityText: {
+    color: '#fff',
     fontSize: 10,
-    color: 'white',
-    fontWeight: '600',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
   pointsText: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#8B4513',
+    fontWeight: '600',
   },
   progressContainer: {
     flexDirection: 'row',
@@ -491,62 +512,24 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     flex: 1,
-    height: 8,
+    height: 6,
     backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginRight: 10,
+    borderRadius: 3,
+    marginRight: 8,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressText: {
     fontSize: 12,
     color: '#666',
     fontWeight: '500',
-    minWidth: 40,
-  },
-  unlockedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minWidth: 30,
   },
   unlockedText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#4CAF50',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 50,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#8B4513',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  authRequiredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  authRequiredTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8B4513',
-    marginBottom: 15,
-  },
-  authRequiredText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
+    fontStyle: 'italic',
   },
 }); 

@@ -7,17 +7,106 @@ export interface ScoreBasedAchievement {
   icon: string;
   rarity: 'common' | 'rare' | 'legendary';
   trigger: {
-    type: 'score' | 'skill_level' | 'project_count' | 'perfect_score' | 'improvement';
+    type: 'score' | 'skill_level' | 'project_count' | 'perfect_score' | 'improvement' | 'onboarding' | 'tutorial' | 'first_project';
     threshold?: number;
     skillLevel?: SkillLevel;
     craftType?: string;
+    tutorialId?: string;
   };
+}
+
+export interface UserAchievementData {
+  // Onboarding data
+  onboardingCompleted: boolean;
+  onboardingStepsCompleted: number;
+  
+  // Tutorial data
+  tutorialsCompleted: string[];
+  tutorialProgress: Record<string, any>;
+  
+  // Project data
+  projectCount: number;
+  recentScores: number[];
+  totalProjects: number;
+  
+  // Skill data
+  currentSkillLevel: SkillLevel;
+  craftSpecialization: string[];
+  
+  // First project data
+  firstProjectStarted: boolean;
+  firstProjectCompleted: boolean;
+  
+  // Existing achievements
+  existingAchievements: string[];
 }
 
 class AchievementService {
   private static instance: AchievementService;
 
   private achievements: ScoreBasedAchievement[] = [
+    // Onboarding achievements
+    {
+      id: 'welcome_aboard',
+      title: 'Welcome Aboard!',
+      description: 'Complete the SnapCraft onboarding process',
+      icon: '🎉',
+      rarity: 'common',
+      trigger: { type: 'onboarding' }
+    },
+    {
+      id: 'craft_specialist',
+      title: 'Craft Specialist',
+      description: 'Choose your craft specialization',
+      icon: '🎯',
+      rarity: 'common',
+      trigger: { type: 'onboarding' }
+    },
+    
+    // Tutorial achievements
+    {
+      id: 'camera_master',
+      title: 'Camera Master',
+      description: 'Complete the Camera Basics tutorial',
+      icon: '📸',
+      rarity: 'common',
+      trigger: { type: 'tutorial', tutorialId: 'camera-basics' }
+    },
+    {
+      id: 'tool_identifier',
+      title: 'Tool Identifier',
+      description: 'Complete the Tool Identification tutorial',
+      icon: '🔧',
+      rarity: 'common',
+      trigger: { type: 'tutorial', tutorialId: 'tool-identification' }
+    },
+    {
+      id: 'documentation_pro',
+      title: 'Documentation Pro',
+      description: 'Complete the Project Documentation tutorial',
+      icon: '📝',
+      rarity: 'common',
+      trigger: { type: 'tutorial', tutorialId: 'project-documentation' }
+    },
+    {
+      id: 'tutorial_graduate',
+      title: 'Tutorial Graduate',
+      description: 'Complete all 3 tutorials',
+      icon: '🎓',
+      rarity: 'rare',
+      trigger: { type: 'tutorial', threshold: 3 }
+    },
+    
+    // First project achievements
+    {
+      id: 'first_project_started',
+      title: 'Journey Begins',
+      description: 'Start your first guided project',
+      icon: '🚀',
+      rarity: 'common',
+      trigger: { type: 'first_project' }
+    },
+    
     // Score-based achievements
     {
       id: 'first_score',
@@ -98,6 +187,14 @@ class AchievementService {
       icon: '🪵',
       rarity: 'rare',
       trigger: { type: 'score', threshold: 80, craftType: 'woodworking' }
+    },
+    {
+      id: 'leathercraft_specialist',
+      title: 'Leathercraft Specialist',
+      description: 'Score 80+ on 3 leathercraft projects',
+      icon: '🏺',
+      rarity: 'rare',
+      trigger: { type: 'score', threshold: 80, craftType: 'leathercraft' }
     },
     {
       id: 'improvement_streak',
@@ -254,6 +351,130 @@ class AchievementService {
     if (typeof window !== 'undefined' && window.alert) {
       window.alert(`🏆 Achievement Unlocked!\n\n${achievement.icon} ${achievement.title}\n${achievement.description}`);
     }
+  }
+
+  /**
+   * Calculate user achievements based on real user data
+   */
+  public async calculateUserAchievements(userData: {
+    onboarding?: { completed: boolean; stepsCompleted: any[] };
+    tutorialProgress?: Record<string, any>;
+    firstProjectGuidance?: { startedAt: any; selectedTemplate: any };
+    skillLevel: SkillLevel;
+    craftSpecialization: string[];
+    projectCount?: number;
+    recentScores?: number[];
+    existingAchievements?: string[];
+  }): Promise<{
+    unlockedAchievements: ScoreBasedAchievement[];
+    totalAchievements: number;
+    achievementPoints: number;
+    progressByCategory: Record<string, { unlocked: number; total: number }>;
+  }> {
+    const unlockedAchievements: ScoreBasedAchievement[] = [];
+    const existingIds = userData.existingAchievements || [];
+
+    // Check onboarding achievements
+    if (userData.onboarding?.completed && !existingIds.includes('welcome_aboard')) {
+      const achievement = this.achievements.find(a => a.id === 'welcome_aboard');
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    if (userData.craftSpecialization.length > 0 && !existingIds.includes('craft_specialist')) {
+      const achievement = this.achievements.find(a => a.id === 'craft_specialist');
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    // Check tutorial achievements
+    if (userData.tutorialProgress) {
+      const completedTutorials = Object.values(userData.tutorialProgress)
+        .filter((progress: any) => progress.completedAt)
+        .map((progress: any) => progress.tutorialId);
+
+      // Individual tutorial achievements
+      const tutorialAchievements = [
+        { tutorialId: 'camera-basics', achievementId: 'camera_master' },
+        { tutorialId: 'tool-identification', achievementId: 'tool_identifier' },
+        { tutorialId: 'project-documentation', achievementId: 'documentation_pro' }
+      ];
+
+      for (const { tutorialId, achievementId } of tutorialAchievements) {
+        if (completedTutorials.includes(tutorialId) && !existingIds.includes(achievementId)) {
+          const achievement = this.achievements.find(a => a.id === achievementId);
+          if (achievement) unlockedAchievements.push(achievement);
+        }
+      }
+
+      // All tutorials completed
+      if (completedTutorials.length >= 3 && !existingIds.includes('tutorial_graduate')) {
+        const achievement = this.achievements.find(a => a.id === 'tutorial_graduate');
+        if (achievement) unlockedAchievements.push(achievement);
+      }
+    }
+
+    // Check first project achievement
+    if (userData.firstProjectGuidance?.startedAt && !existingIds.includes('first_project_started')) {
+      const achievement = this.achievements.find(a => a.id === 'first_project_started');
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    // Check skill level achievements
+    const skillAchievements = [
+      { level: 'apprentice', id: 'apprentice_level' },
+      { level: 'journeyman', id: 'journeyman_level' },
+      { level: 'craftsman', id: 'craftsman_level' },
+      { level: 'master', id: 'master_level' }
+    ];
+
+    for (const { level, id } of skillAchievements) {
+      if (this.isSkillLevelReached(userData.skillLevel, level as SkillLevel) && !existingIds.includes(id)) {
+        const achievement = this.achievements.find(a => a.id === id);
+        if (achievement) unlockedAchievements.push(achievement);
+      }
+    }
+
+    // Check project count achievements
+    const projectCount = userData.projectCount || 0;
+    if (projectCount >= 1 && !existingIds.includes('first_score')) {
+      const achievement = this.achievements.find(a => a.id === 'first_score');
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    if (projectCount >= 10 && !existingIds.includes('prolific_creator')) {
+      const achievement = this.achievements.find(a => a.id === 'prolific_creator');
+      if (achievement) unlockedAchievements.push(achievement);
+    }
+
+    // Calculate progress by category
+    const progressByCategory = {
+      onboarding: { 
+        unlocked: unlockedAchievements.filter(a => ['welcome_aboard', 'craft_specialist'].includes(a.id)).length,
+        total: 2 
+      },
+      tutorials: { 
+        unlocked: unlockedAchievements.filter(a => ['camera_master', 'tool_identifier', 'documentation_pro', 'tutorial_graduate'].includes(a.id)).length,
+        total: 4 
+      },
+      projects: { 
+        unlocked: unlockedAchievements.filter(a => ['first_project_started', 'first_score', 'prolific_creator'].includes(a.id)).length,
+        total: 3 
+      },
+      skills: { 
+        unlocked: unlockedAchievements.filter(a => ['apprentice_level', 'journeyman_level', 'craftsman_level', 'master_level'].includes(a.id)).length,
+        total: 4 
+      },
+      scoring: { 
+        unlocked: unlockedAchievements.filter(a => ['score_70', 'score_85', 'perfect_score', 'improvement_streak'].includes(a.id)).length,
+        total: 4 
+      }
+    };
+
+    return {
+      unlockedAchievements,
+      totalAchievements: this.achievements.length,
+      achievementPoints: this.calculateAchievementPoints(unlockedAchievements),
+      progressByCategory
+    };
   }
 }
 
