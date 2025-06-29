@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -17,6 +18,7 @@ import { VisionMode } from '../../shared/types/vision';
 import { Tool } from '../../shared/types';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/firebase/auth';
+import { ToolUsageTrackingService, ToolAnalytics, ToolRecommendation } from '../../services/toolUsageTracking';
 
 // Tool categories with emojis
 const TOOL_CATEGORIES = [
@@ -236,9 +238,63 @@ export default function ToolInventoryScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  // Task 2.6 Enhanced Tool Management - Analytics & Recommendations
+  const [toolAnalytics, setToolAnalytics] = useState<ToolAnalytics | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [recommendations, setRecommendations] = useState<ToolRecommendation[]>([]);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   const handleAddTool = (newTool: Tool) => {
     setTools((prevTools: Tool[]) => [...prevTools, newTool]);
+  };
+
+  // Task 2.6 Enhanced Tool Management - Analytics Functions
+  const loadToolAnalytics = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoadingAnalytics(true);
+      const trackingService = ToolUsageTrackingService.getInstance();
+      const analytics = await trackingService.getToolAnalytics(user.id);
+      setToolAnalytics(analytics);
+      console.log('📊 Tool analytics loaded:', analytics);
+    } catch (error) {
+      console.error('❌ Failed to load tool analytics:', error);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
+
+  const loadToolRecommendations = async () => {
+    if (!user) return;
+    
+    try {
+      const trackingService = ToolUsageTrackingService.getInstance();
+      const allRecommendations: ToolRecommendation[] = [];
+      
+      // Get recommendations for each of the user's craft specializations
+      if (user.craftSpecialization) {
+        for (const craftType of user.craftSpecialization) {
+          const craftRecommendations = await trackingService.generateToolRecommendations(
+            user.id,
+            craftType,
+            user.skillLevel || 'apprentice'
+          );
+          allRecommendations.push(...craftRecommendations);
+        }
+      }
+      
+      // Remove duplicates and sort by priority
+      const uniqueRecommendations = allRecommendations.filter(
+        (rec, index, self) => index === self.findIndex(r => r.toolName === rec.toolName)
+      );
+      
+      setRecommendations(uniqueRecommendations.slice(0, 10)); // Top 10
+      console.log('🎯 Tool recommendations loaded:', uniqueRecommendations.length);
+    } catch (error) {
+      console.error('❌ Failed to load tool recommendations:', error);
+    }
   };
 
   const getConditionColor = (condition: string): string => {
@@ -365,12 +421,32 @@ export default function ToolInventoryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🔧 Tool Inventory</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <Ionicons name="add" size={20} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.analyticsButton}
+            onPress={() => {
+              loadToolAnalytics();
+              setShowAnalytics(true);
+            }}
+          >
+            <Ionicons name="analytics" size={18} color="#8B4513" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.recommendationsButton}
+            onPress={() => {
+              loadToolRecommendations();
+              setShowRecommendations(true);
+            }}
+          >
+            <Ionicons name="bulb" size={18} color="#8B4513" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Ionicons name="add" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search and Filters */}
@@ -546,6 +622,131 @@ export default function ToolInventoryScreen() {
         onClose={() => setShowAddModal(false)}
         onAddTool={handleAddTool}
       />
+
+      {/* Analytics Modal - Task 2.6 Enhanced Tool Management */}
+      <Modal
+        visible={showAnalytics}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAnalytics(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>📊 Tool Analytics</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowAnalytics(false)}
+            >
+              <Ionicons name="close" size={24} color="#8B4513" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {isLoadingAnalytics ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading analytics...</Text>
+              </View>
+            ) : toolAnalytics ? (
+              <>
+                <View style={styles.analyticsCard}>
+                  <Text style={styles.analyticsCardTitle}>📈 Overview</Text>
+                  <Text style={styles.analyticsText}>Total Tools: {toolAnalytics.totalTools}</Text>
+                  <Text style={styles.analyticsText}>
+                    Categories: {toolAnalytics.toolsByCategory.length}
+                  </Text>
+                  <Text style={styles.analyticsText}>
+                    Maintenance Overdue: {toolAnalytics.maintenanceOverdue.length}
+                  </Text>
+                </View>
+
+                {toolAnalytics.mostUsedTools.length > 0 && (
+                  <View style={styles.analyticsCard}>
+                    <Text style={styles.analyticsCardTitle}>🔥 Most Used Tools</Text>
+                    {toolAnalytics.mostUsedTools.map((item, index) => (
+                      <View key={index} style={styles.analyticsItem}>
+                        <Text style={styles.analyticsItemName}>{item.tool.name}</Text>
+                        <Text style={styles.analyticsItemValue}>{item.usageCount} uses</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                <View style={styles.analyticsCard}>
+                  <Text style={styles.analyticsCardTitle}>📊 Tools by Category</Text>
+                  {toolAnalytics.toolsByCategory.map((item, index) => (
+                    <View key={index} style={styles.analyticsItem}>
+                      <Text style={styles.analyticsItemName}>
+                        {getCategoryEmoji(item.category)} {item.category}
+                      </Text>
+                      <Text style={styles.analyticsItemValue}>{item.count}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyAnalytics}>
+                <Text style={styles.emptyAnalyticsText}>No analytics data available</Text>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Recommendations Modal - Task 2.6 Enhanced Tool Management */}
+      <Modal
+        visible={showRecommendations}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowRecommendations(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>💡 Tool Recommendations</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowRecommendations(false)}
+            >
+              <Ionicons name="close" size={24} color="#8B4513" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {recommendations.length > 0 ? (
+              recommendations.map((rec, index) => (
+                <View key={index} style={styles.recommendationCard}>
+                  <View style={styles.recommendationHeader}>
+                    <Text style={styles.recommendationTitle}>{rec.toolName}</Text>
+                    <View style={[
+                      styles.priorityBadge,
+                      { backgroundColor: rec.priority === 'high' ? '#FF5722' : rec.priority === 'medium' ? '#FF9800' : '#4CAF50' }
+                    ]}>
+                      <Text style={styles.priorityText}>{rec.priority.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.recommendationReason}>{rec.reason}</Text>
+                  <Text style={styles.recommendationCategory}>Category: {rec.category}</Text>
+                  {rec.estimatedCost && (
+                    <Text style={styles.recommendationCost}>Est. Cost: ${rec.estimatedCost}</Text>
+                  )}
+                  {rec.alternatives && rec.alternatives.length > 0 && (
+                    <Text style={styles.recommendationAlternatives}>
+                      Alternatives: {rec.alternatives.join(', ')}
+                    </Text>
+                  )}
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyRecommendations}>
+                <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
+                <Text style={styles.emptyRecommendationsTitle}>You're all set!</Text>
+                <Text style={styles.emptyRecommendationsText}>
+                  No new tool recommendations at this time. Your inventory looks great for your current craft specializations.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -569,6 +770,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#8B4513',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  analyticsButton: {
+    padding: 8,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  recommendationsButton: {
+    padding: 8,
+    borderRadius: 12,
+    marginRight: 8,
   },
   addButton: {
     width: 36,
@@ -891,7 +1106,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#8B4513',
   },
@@ -903,7 +1118,7 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 15,
   },
   fieldLabel: {
     fontSize: 14,
@@ -983,5 +1198,123 @@ const styles = StyleSheet.create({
   conditionLabelSelected: {
     color: 'white',
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#8B4513',
+    fontWeight: '600',
+  },
+  analyticsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+  },
+  analyticsCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 10,
+  },
+  analyticsText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  analyticsItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  analyticsItemName: {
+    fontSize: 14,
+    color: '#666',
+  },
+  analyticsItemValue: {
+    fontSize: 12,
+    color: '#999',
+  },
+  emptyAnalytics: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyAnalyticsText: {
+    fontSize: 16,
+    color: '#8B4513',
+    fontWeight: '600',
+  },
+  recommendationCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  priorityText: {
+    fontSize: 10,
+    color: 'white',
+    fontWeight: '600',
+  },
+  recommendationReason: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  recommendationCategory: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  recommendationCost: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  recommendationAlternatives: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  emptyRecommendations: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyRecommendationsTitle: {
+    fontSize: 18,
+    color: '#8B4513',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  emptyRecommendationsText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 12,
   },
 }); 

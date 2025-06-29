@@ -147,6 +147,45 @@ export interface Tool {
   notes?: string;
   image?: string;
   isShared: boolean; // Can other users see this tool
+  // Enhanced Tool Management - Task 2.6
+  usageTracking?: {
+    totalUsageCount: number; // Total times used in projects
+    lastUsedDate?: Date; // Last time used in a project
+    projectsUsedIn: string[]; // Array of project IDs where this tool was used
+    averageUsagePerMonth: number; // Calculated usage frequency
+    craftTypesUsedFor: CraftSpecialization[]; // What craft types this tool has been used for
+  };
+  recommendations?: {
+    recommendedForCraftTypes: CraftSpecialization[]; // What craft types this tool is recommended for
+    skillLevelRecommendation: SkillLevel[]; // What skill levels should use this tool
+    complementaryTools: string[]; // Tool IDs that work well with this tool
+    projectTypes: string[]; // Types of projects this tool is good for
+  };
+  maintenance?: {
+    lastMaintenanceDate?: Date;
+    nextMaintenanceDate?: Date;
+    maintenanceReminders: MaintenanceReminder[];
+    maintenanceHistory: MaintenanceRecord[];
+  };
+}
+
+export interface MaintenanceReminder {
+  id: string;
+  type: 'cleaning' | 'sharpening' | 'calibration' | 'replacement' | 'inspection';
+  description: string;
+  dueDate: Date;
+  isCompleted: boolean;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface MaintenanceRecord {
+  id: string;
+  type: 'cleaning' | 'sharpening' | 'calibration' | 'replacement' | 'inspection' | 'repair';
+  description: string;
+  performedDate: Date;
+  cost?: number;
+  notes?: string;
+  nextMaintenanceDue?: Date;
 }
 
 export interface Skill {

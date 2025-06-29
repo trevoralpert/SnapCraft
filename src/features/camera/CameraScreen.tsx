@@ -507,6 +507,32 @@ export default function CameraScreen({
         );
       }
 
+      // Track tool usage for this project - Task 2.6 Enhanced Tool Management
+      try {
+        console.log('🔧 Tracking tool usage for project...');
+        const { ToolUsageTrackingService } = await import('../../services/toolUsageTracking');
+        const toolTrackingService = ToolUsageTrackingService.getInstance();
+        
+        // For now, we'll track usage of commonly used tools for the craft type
+        // In a full implementation, this would come from user selection or AI analysis
+        const mockToolUsageEvents = [
+          {
+            toolId: 'mock_tool_1', // This would be real tool IDs from user's inventory
+            projectId: postId,
+            craftType: 'general' as const,
+            usageDate: new Date(),
+            userSkillLevel: user.skillLevel || 'apprentice',
+            projectDescription: captionText.trim()
+          }
+        ];
+        
+        const toolTrackingResult = await toolTrackingService.trackToolUsage(user.id, mockToolUsageEvents);
+        console.log(`🔧 Tool usage tracking: ${toolTrackingResult.updatedTools} tools updated`);
+      } catch (toolTrackingError) {
+        console.warn('⚠️ Tool usage tracking failed:', toolTrackingError);
+        // Don't fail the post creation if tool tracking fails
+      }
+
       // Update user skill level after post creation
       try {
         console.log('🧠 Updating user skill level...');
