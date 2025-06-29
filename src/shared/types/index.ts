@@ -437,4 +437,45 @@ export interface KnowledgeSource {
 }
 
 // Vision AI Types
-export * from './vision'; 
+export * from './vision';
+
+export interface ToolRecommendation {
+  toolId: string;
+  toolName: string;
+  category: string;
+  reason: string;
+  priority: 'low' | 'medium' | 'high';
+  craftType: CraftSpecialization;
+  estimatedCost?: number;
+  alternatives?: string[];
+}
+
+export interface ToolAnalytics {
+  totalTools: number;
+  mostUsedTools: { tool: Tool; usageCount: number }[];
+  leastUsedTools: { tool: Tool; daysSinceLastUse: number }[];
+  toolsByCategory: { category: string; count: number }[];
+  maintenanceOverdue: Tool[];
+  usageByMonth: { month: string; usageCount: number }[];
+  recommendedTools: ToolRecommendation[];
+  // Task 2.7: Enhanced Tool Inventory Analytics
+  identificationAccuracy: {
+    totalIdentifications: number;
+    correctIdentifications: number;
+    accuracyRate: number;
+    averageConfidence: number;
+    highConfidenceTools: { toolName: string; confidence: number }[];
+    lowConfidenceTools: { toolName: string; confidence: number }[];
+  };
+  usagePatterns: {
+    mostFrequentCombinations: { tools: string[]; usageCount: number }[];
+    craftTypeDistribution: { craftType: CraftSpecialization; usageCount: number }[];
+    seasonalTrends: { period: string; toolsUsed: number }[];
+    efficiencyMetrics: { avgToolsPerProject: number; toolUtilizationRate: number };
+  };
+  missingToolsAnalysis: {
+    suggestedForCraftTypes: { craftType: CraftSpecialization; missingTools: string[] }[];
+    projectScoringInsights: { toolName: string; impactOnScore: number; frequency: number }[];
+    gapAnalysis: { category: string; recommendedCount: number; currentCount: number }[];
+  };
+} 

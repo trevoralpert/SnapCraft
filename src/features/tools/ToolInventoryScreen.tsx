@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,32 +10,35 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { VisionMode } from '../../shared/types/vision';
-import { Tool } from '../../shared/types';
+import { Tool, ToolCategory, ToolCondition, ToolAnalytics, ToolRecommendation } from '../../shared/types';
 import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/firebase/auth';
-import { ToolUsageTrackingService, ToolAnalytics, ToolRecommendation } from '../../services/toolUsageTracking';
+import { ToolUsageTrackingService } from '../../services/toolUsageTracking';
 
 // Tool categories with emojis
 const TOOL_CATEGORIES = [
-  { id: 'hand-tools', label: 'Hand Tools', emoji: '🔨' },
-  { id: 'power-tools', label: 'Power Tools', emoji: '⚡' },
-  { id: 'measuring', label: 'Measuring', emoji: '📏' },
-  { id: 'safety', label: 'Safety', emoji: '🥽' },
-  { id: 'finishing', label: 'Finishing', emoji: '🎨' },
-  { id: 'specialized', label: 'Specialized', emoji: '🛠️' },
+  { key: 'all', label: 'All Tools', emoji: '🔧' },
+  { key: 'hand-tools' as ToolCategory, label: 'Hand Tools', emoji: '🔨' },
+  { key: 'power-tools' as ToolCategory, label: 'Power Tools', emoji: '⚡' },
+  { key: 'measuring' as ToolCategory, label: 'Measuring', emoji: '📏' },
+  { key: 'safety' as ToolCategory, label: 'Safety', emoji: '🦺' },
+  { key: 'finishing' as ToolCategory, label: 'Finishing', emoji: '✨' },
+  { key: 'specialized' as ToolCategory, label: 'Specialized', emoji: '🎯' },
 ];
 
 // Tool conditions
 const TOOL_CONDITIONS = [
-  { id: 'excellent', label: 'Excellent', color: '#4CAF50' },
-  { id: 'good', label: 'Good', color: '#8BC34A' },
-  { id: 'fair', label: 'Fair', color: '#FFC107' },
-  { id: 'needs-repair', label: 'Needs Repair', color: '#FF5722' },
+  { key: 'all', label: 'All Conditions' },
+  { key: 'excellent' as ToolCondition, label: 'Excellent' },
+  { key: 'good' as ToolCondition, label: 'Good' },
+  { key: 'fair' as ToolCondition, label: 'Fair' },
+  { key: 'needs-repair' as ToolCondition, label: 'Needs Repair' },
 ];
 
 // Tool interface for type safety - extends the shared Tool interface
@@ -138,17 +141,17 @@ function AddToolModal({ visible, onClose, onAddTool }: AddToolModalProps) {
           <View style={styles.categoryGrid}>
             {TOOL_CATEGORIES.map((category) => (
               <TouchableOpacity
-                key={category.id}
+                key={category.key}
                 style={[
                   styles.categoryButton,
-                  selectedCategory === category.id && styles.categoryButtonSelected,
+                  selectedCategory === category.key && styles.categoryButtonSelected,
                 ]}
-                onPress={() => setSelectedCategory(category.id)}
+                onPress={() => setSelectedCategory(category.key)}
               >
                 <Text style={styles.categoryEmoji}>{category.emoji}</Text>
                 <Text style={[
                   styles.categoryLabel,
-                  selectedCategory === category.id && styles.categoryLabelSelected,
+                  selectedCategory === category.key && styles.categoryLabelSelected,
                 ]}>
                   {category.label}
                 </Text>
@@ -178,16 +181,16 @@ function AddToolModal({ visible, onClose, onAddTool }: AddToolModalProps) {
           <View style={styles.conditionContainer}>
             {TOOL_CONDITIONS.map((condition) => (
               <TouchableOpacity
-                key={condition.id}
+                key={condition.key}
                 style={[
                   styles.conditionButton,
-                  selectedCondition === condition.id && { backgroundColor: condition.color },
+                  selectedCondition === condition.key && { backgroundColor: condition.key === 'all' ? '#666' : condition.key === 'excellent' ? '#4CAF50' : condition.key === 'good' ? '#8BC34A' : condition.key === 'fair' ? '#FFC107' : '#FF5722' },
                 ]}
-                onPress={() => setSelectedCondition(condition.id)}
+                onPress={() => setSelectedCondition(condition.key)}
               >
                 <Text style={[
                   styles.conditionLabel,
-                  selectedCondition === condition.id && styles.conditionLabelSelected,
+                  selectedCondition === condition.key && styles.conditionLabelSelected,
                 ]}>
                   {condition.label}
                 </Text>
@@ -298,12 +301,12 @@ export default function ToolInventoryScreen() {
   };
 
   const getConditionColor = (condition: string): string => {
-    const conditionObj = TOOL_CONDITIONS.find(c => c.id === condition);
-    return conditionObj?.color || '#666';
+    const conditionObj = TOOL_CONDITIONS.find(c => c.key === condition);
+    return conditionObj?.key === 'all' ? '#666' : conditionObj?.key === 'excellent' ? '#4CAF50' : conditionObj?.key === 'good' ? '#8BC34A' : conditionObj?.key === 'fair' ? '#FFC107' : '#FF5722';
   };
 
   const getCategoryEmoji = (categoryId: string): string => {
-    const category = TOOL_CATEGORIES.find(c => c.id === categoryId);
+    const category = TOOL_CATEGORIES.find(c => c.key === categoryId);
     return category?.emoji || '🛠️';
   };
 
@@ -347,7 +350,7 @@ export default function ToolInventoryScreen() {
         </View>
         <View style={[styles.conditionBadge, { backgroundColor: getConditionColor(item.condition) }]}>
           <Text style={styles.conditionBadgeText}>
-            {TOOL_CONDITIONS.find(c => c.id === item.condition)?.label}
+            {TOOL_CONDITIONS.find(c => c.key === item.condition)?.label}
           </Text>
         </View>
       </View>
@@ -522,20 +525,20 @@ export default function ToolInventoryScreen() {
               </Text>
             </TouchableOpacity>
             {TOOL_CATEGORIES.map((category) => {
-              const count = tools.filter(tool => tool.category === category.id).length;
+              const count = tools.filter(tool => tool.category === category.key).length;
               return (
                 <TouchableOpacity
-                  key={category.id}
+                  key={category.key}
                   style={[
                     styles.filterButton,
-                    selectedCategory === category.id && styles.filterButtonActive
+                    selectedCategory === category.key && styles.filterButtonActive
                   ]}
-                  onPress={() => setSelectedCategory(category.id)}
+                  onPress={() => setSelectedCategory(category.key)}
                 >
                   <Text style={styles.filterEmoji}>{category.emoji}</Text>
                   <Text style={[
                     styles.filterButtonText,
-                    selectedCategory === category.id && styles.filterButtonTextActive
+                    selectedCategory === category.key && styles.filterButtonTextActive
                   ]}>
                     {category.label} ({count})
                   </Text>
@@ -659,6 +662,108 @@ export default function ToolInventoryScreen() {
                   </Text>
                 </View>
 
+                {/* Task 2.7: Tool Identification Accuracy */}
+                <View style={styles.analyticsCard}>
+                  <Text style={styles.analyticsCardTitle}>🎯 Identification Accuracy</Text>
+                  <Text style={styles.analyticsText}>
+                    Total Identifications: {toolAnalytics.identificationAccuracy.totalIdentifications}
+                  </Text>
+                  <Text style={styles.analyticsText}>
+                    Accuracy Rate: {toolAnalytics.identificationAccuracy.accuracyRate.toFixed(1)}%
+                  </Text>
+                  <Text style={styles.analyticsText}>
+                    Avg Confidence: {toolAnalytics.identificationAccuracy.averageConfidence.toFixed(1)}%
+                  </Text>
+                  {toolAnalytics.identificationAccuracy.highConfidenceTools.length > 0 && (
+                    <View style={styles.subSection}>
+                      <Text style={styles.subSectionTitle}>High Confidence Tools:</Text>
+                      {toolAnalytics.identificationAccuracy.highConfidenceTools.map((tool, index) => (
+                        <Text key={index} style={styles.analyticsSubText}>
+                          • {tool.toolName} ({tool.confidence.toFixed(1)}%)
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Task 2.7: Usage Patterns */}
+                <View style={styles.analyticsCard}>
+                  <Text style={styles.analyticsCardTitle}>📊 Usage Patterns</Text>
+                  <Text style={styles.analyticsText}>
+                    Avg Tools/Project: {toolAnalytics.usagePatterns.efficiencyMetrics.avgToolsPerProject.toFixed(1)}
+                  </Text>
+                  <Text style={styles.analyticsText}>
+                    Tool Utilization: {toolAnalytics.usagePatterns.efficiencyMetrics.toolUtilizationRate.toFixed(1)}%
+                  </Text>
+                  
+                  {toolAnalytics.usagePatterns.craftTypeDistribution.length > 0 && (
+                    <View style={styles.subSection}>
+                      <Text style={styles.subSectionTitle}>Craft Type Usage:</Text>
+                      {toolAnalytics.usagePatterns.craftTypeDistribution.map((item, index) => (
+                        <Text key={index} style={styles.analyticsSubText}>
+                          • {item.craftType}: {item.usageCount} uses
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {toolAnalytics.usagePatterns.mostFrequentCombinations.length > 0 && (
+                    <View style={styles.subSection}>
+                      <Text style={styles.subSectionTitle}>Common Tool Combinations:</Text>
+                      {toolAnalytics.usagePatterns.mostFrequentCombinations.map((combo, index) => (
+                        <Text key={index} style={styles.analyticsSubText}>
+                          • {combo.tools.join(', ')} ({combo.usageCount} times)
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Task 2.7: Missing Tools Analysis */}
+                <View style={styles.analyticsCard}>
+                  <Text style={styles.analyticsCardTitle}>🔍 Missing Tools Analysis</Text>
+                  
+                  {toolAnalytics.missingToolsAnalysis.suggestedForCraftTypes.length > 0 && (
+                    <View style={styles.subSection}>
+                      <Text style={styles.subSectionTitle}>Suggested for Your Crafts:</Text>
+                      {toolAnalytics.missingToolsAnalysis.suggestedForCraftTypes.map((item, index) => (
+                        <View key={index} style={styles.craftTypeSection}>
+                          <Text style={styles.craftTypeTitle}>{item.craftType}:</Text>
+                          {item.missingTools.map((tool, toolIndex) => (
+                            <Text key={toolIndex} style={styles.analyticsSubText}>
+                              • {tool}
+                            </Text>
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {toolAnalytics.missingToolsAnalysis.projectScoringInsights.length > 0 && (
+                    <View style={styles.subSection}>
+                      <Text style={styles.subSectionTitle}>High-Impact Missing Tools:</Text>
+                      {toolAnalytics.missingToolsAnalysis.projectScoringInsights.map((tool, index) => (
+                        <Text key={index} style={styles.analyticsSubText}>
+                          • {tool.toolName} (+{tool.impactOnScore} score impact)
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {toolAnalytics.missingToolsAnalysis.gapAnalysis.length > 0 && (
+                    <View style={styles.subSection}>
+                      <Text style={styles.subSectionTitle}>Category Gaps:</Text>
+                      {toolAnalytics.missingToolsAnalysis.gapAnalysis
+                        .filter(gap => gap.currentCount < gap.recommendedCount)
+                        .map((gap, index) => (
+                          <Text key={index} style={styles.analyticsSubText}>
+                            • {gap.category}: {gap.currentCount}/{gap.recommendedCount} tools
+                          </Text>
+                        ))}
+                    </View>
+                  )}
+                </View>
+
                 {toolAnalytics.mostUsedTools.length > 0 && (
                   <View style={styles.analyticsCard}>
                     <Text style={styles.analyticsCardTitle}>🔥 Most Used Tools</Text>
@@ -684,9 +789,7 @@ export default function ToolInventoryScreen() {
                 </View>
               </>
             ) : (
-              <View style={styles.emptyAnalytics}>
-                <Text style={styles.emptyAnalyticsText}>No analytics data available</Text>
-              </View>
+              <Text style={styles.noDataText}>No analytics data available</Text>
             )}
           </ScrollView>
         </SafeAreaView>
@@ -1240,15 +1343,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
-  emptyAnalytics: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyAnalyticsText: {
+  noDataText: {
     fontSize: 16,
     color: '#8B4513',
     fontWeight: '600',
+    textAlign: 'center',
   },
   recommendationCard: {
     backgroundColor: 'white',
@@ -1316,5 +1415,27 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 8,
     borderRadius: 12,
+  },
+  subSection: {
+    marginBottom: 10,
+  },
+  subSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 5,
+  },
+  analyticsSubText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  craftTypeSection: {
+    marginBottom: 10,
+  },
+  craftTypeTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    marginBottom: 5,
   },
 }); 
