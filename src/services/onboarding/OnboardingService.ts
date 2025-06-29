@@ -1,9 +1,11 @@
 import { User, CraftSpecialization } from '../../shared/types';
 import { OnboardingStep, OnboardingData, OnboardingProgress, OnboardingStepType } from '../../shared/types/onboarding';
 import { AuthService } from '../firebase/auth';
+import { OnboardingAnalytics } from '../analytics/OnboardingAnalytics';
 
 export class OnboardingService {
   private static readonly TOTAL_STEPS = 5;
+  private static stepStartTimes: Map<string, Date> = new Map();
   
   private static readonly STEPS: { id: number; name: string; type: OnboardingStepType }[] = [
     { id: 0, name: 'Welcome to SnapCraft', type: 'welcome' },
@@ -12,6 +14,35 @@ export class OnboardingService {
     { id: 3, name: 'Tool Inventory Introduction', type: 'tool-introduction' },
     { id: 4, name: 'First Project Guidance', type: 'first-project-guidance' }
   ];
+
+  static async startOnboarding(userId: string): Promise<void> {
+    // Initialize analytics session
+    OnboardingAnalytics.initializeSession();
+    
+    // Track onboarding start
+    await OnboardingAnalytics.trackEvent(userId, 'onboarding_started');
+    
+    console.log(`🚀 Onboarding started for user ${userId}`);
+  }
+
+  static async startStep(userId: string, stepId: number): Promise<void> {
+    const stepInfo = this.getStepInfo(stepId);
+    if (!stepInfo) return;
+
+    // Track step start time
+    const startTimeKey = `${userId}_${stepId}`;
+    this.stepStartTimes.set(startTimeKey, new Date());
+
+    // Track step view
+    await OnboardingAnalytics.trackEvent(
+      userId, 
+      'step_viewed', 
+      stepId, 
+      stepInfo.name
+    );
+
+    console.log(`👀 User ${userId} started step ${stepId}: ${stepInfo.name}`);
+  }
 
   static getProgress(user: User): OnboardingProgress {
     const onboarding = user.onboarding || {
@@ -32,8 +63,16 @@ export class OnboardingService {
   static async completeStep(
     user: User, 
     stepId: number, 
-    data?: Partial<OnboardingData>
+    data?: Partial<OnboardingData>,
+    skipped: boolean = false
   ): Promise<void> {
+    const stepInfo = this.getStepInfo(stepId);
+    if (!stepInfo) return;
+
+    // Get step start time for duration calculation
+    const startTimeKey = `${user.id}_${stepId}`;
+    const startTime = this.stepStartTimes.get(startTimeKey) || new Date();
+
     const currentOnboarding = user.onboarding || {
       completed: false,
       currentStep: 0,
@@ -42,7 +81,7 @@ export class OnboardingService {
 
     const step: OnboardingStep = {
       id: stepId,
-      name: this.STEPS[stepId]?.name || `Step ${stepId}`,
+      name: stepInfo.name,
       completed: true,
       completedAt: new Date()
     };
@@ -79,8 +118,25 @@ export class OnboardingService {
     }
 
     await AuthService.updateUserData(user.id, userUpdates);
+
+    // Track step completion with analytics
+    await OnboardingAnalytics.trackStepCompletion(
+      user.id,
+      stepId,
+      stepInfo.name,
+      startTime,
+      skipped
+    );
+
+    // Track onboarding completion
+    if (isCompleted) {
+      await OnboardingAnalytics.trackEvent(user.id, 'onboarding_completed');
+    }
+
+    // Clean up step start time
+    this.stepStartTimes.delete(startTimeKey);
     
-    console.log(`✅ Onboarding step ${stepId} completed for user ${user.id}`);
+    console.log(`✅ Onboarding step ${stepId} ${skipped ? 'skipped' : 'completed'} for user ${user.id}`);
     if (isCompleted) {
       console.log(`🎉 Onboarding completed for user ${user.id}`);
     }
@@ -100,7 +156,26 @@ export class OnboardingService {
     };
 
     await AuthService.updateUserData(user.id, { onboarding: updatedOnboarding });
+
+    // Track onboarding abandonment/skip
+    await OnboardingAnalytics.trackEvent(user.id, 'onboarding_abandoned');
+
     console.log(`⏭️ Onboarding skipped for user ${user.id}`);
+  }
+
+  static async trackError(userId: string, stepId: number, errorMessage: string): Promise<void> {
+    const stepInfo = this.getStepInfo(stepId);
+    if (!stepInfo) return;
+
+    await OnboardingAnalytics.trackEvent(
+      userId,
+      'step_error',
+      stepId,
+      stepInfo.name,
+      { errorMessage }
+    );
+
+    console.log(`❌ Onboarding error for user ${userId} at step ${stepId}: ${errorMessage}`);
   }
 
   static getStepInfo(stepId: number): { name: string; type: OnboardingStepType } | null {

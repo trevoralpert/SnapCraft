@@ -32,9 +32,23 @@ export function Typography({
     style,
   ];
 
+  // Ensure children is safe to render
+  const renderableChildren = React.useMemo(() => {
+    if (children === null || children === undefined) {
+      return '';
+    }
+    if (typeof children === 'string' || typeof children === 'number') {
+      return children;
+    }
+    if (typeof children === 'boolean') {
+      return children.toString();
+    }
+    return String(children);
+  }, [children]);
+
   return (
     <Text style={textStyle} {...props}>
-      {children}
+      {renderableChildren}
     </Text>
   );
 }

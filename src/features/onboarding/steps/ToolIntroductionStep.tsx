@@ -155,9 +155,9 @@ export function ToolIntroductionStep({ onNext, onBack, progress }: OnboardingScr
           )}
           
           <CraftButton
-            title="Got It!"
+            title="Continue"
             onPress={handleNext}
-            style={[styles.primaryButton, !onBack && styles.fullWidthButton]}
+            style={[styles.primaryButton, !onBack ? styles.fullWidthButton : null]}
             textStyle={styles.primaryButtonText}
           />
         </View>

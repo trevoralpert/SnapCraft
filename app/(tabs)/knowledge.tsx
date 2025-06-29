@@ -122,6 +122,28 @@ export default function KnowledgeTab() {
           </View>
         </TouchableOpacity>
 
+        {/* Onboarding Analytics */}
+        <TouchableOpacity
+          style={[styles.featureCard, styles.analyticsFeature]}
+          onPress={() => router.push('/analytics')}
+        >
+          <View style={styles.featureHeader}>
+            <Ionicons name="analytics" size={24} color="#FFFFFF" />
+            <View style={styles.newBadge}>
+              <Text style={styles.newBadgeText}>NEW</Text>
+            </View>
+          </View>
+          <Text style={[styles.featureTitle, { color: '#FFFFFF' }]}>Analytics Dashboard</Text>
+          <Text style={[styles.featureDescription, { color: '#E0E0E0' }]}>
+            Track your onboarding progress, tutorial completion, and learning journey. 
+            See insights and recommendations for improvement.
+          </Text>
+          <View style={styles.featureFooter}>
+            <Text style={styles.featureTag}>📊 Progress Tracking</Text>
+            <Text style={styles.featureTag}>💡 Insights</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Knowledge Base */}
         <TouchableOpacity
           style={styles.featureCard}
@@ -274,5 +296,9 @@ const styles = StyleSheet.create({
   firstProjectFeature: {
     backgroundColor: '#D4AF37',
     borderColor: '#D4AF37',
+  },
+  analyticsFeature: {
+    backgroundColor: '#2E7D32',
+    borderColor: '#2E7D32',
   },
 }); 

@@ -162,7 +162,7 @@ export function FirstProjectStep({ onNext, onBack, progress }: OnboardingScreenP
           <CraftButton
             title="Start Crafting!"
             onPress={handleNext}
-            style={[styles.primaryButton, !onBack && styles.fullWidthButton]}
+            style={[styles.primaryButton, !onBack ? styles.fullWidthButton : null]}
             textStyle={styles.primaryButtonText}
           />
         </View>

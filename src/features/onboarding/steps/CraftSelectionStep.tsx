@@ -129,7 +129,7 @@ export function CraftSelectionStep({ onNext, onBack, progress }: OnboardingScree
           <CraftButton
             title="Continue"
             onPress={handleNext}
-            style={[styles.primaryButton, !onBack && styles.fullWidthButton]}
+            style={[styles.primaryButton, !onBack ? styles.fullWidthButton : null]}
             textStyle={styles.primaryButtonText}
           />
         </View>

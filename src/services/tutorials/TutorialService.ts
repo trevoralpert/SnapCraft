@@ -1,5 +1,6 @@
 import { Tutorial, TutorialStep, TutorialProgress, User } from '../../shared/types';
 import { AuthService } from '../firebase/auth';
+import { OnboardingAnalytics } from '../analytics/OnboardingAnalytics';
 
 export class TutorialService {
   // Define available tutorials
@@ -186,6 +187,15 @@ export class TutorialService {
       };
 
       await this.saveTutorialProgress(userId, progress);
+
+      // Track tutorial start with analytics
+      await OnboardingAnalytics.trackTutorialProgress(
+        userId,
+        tutorialId,
+        'tutorial_started',
+        progress
+      );
+
       console.log(`✅ Tutorial ${tutorialId} started for user ${userId}`);
     } catch (error) {
       console.error('Error starting tutorial:', error);
@@ -200,7 +210,7 @@ export class TutorialService {
       const currentProgress = userProgress[tutorialId];
 
       if (!currentProgress) {
-        throw new Error(`Tutorial ${tutorialId} not started`);
+        throw new Error(`No progress found for tutorial ${tutorialId}`);
       }
 
       const tutorial = this.TUTORIALS.find(t => t.id === tutorialId);
@@ -208,33 +218,41 @@ export class TutorialService {
         throw new Error(`Tutorial ${tutorialId} not found`);
       }
 
-      const stepIndex = tutorial.steps.findIndex(s => s.id === stepId);
-      if (stepIndex === -1) {
-        throw new Error(`Step ${stepId} not found in tutorial ${tutorialId}`);
-      }
+      const currentStepIndex = tutorial.steps.findIndex(s => s.id === stepId);
+      const nextStep = tutorial.steps[currentStepIndex + 1];
+      const isCompleted = !nextStep;
 
-      // Update progress
-      const updatedProgress: any = {
+      const updatedProgress: TutorialProgress = {
         ...currentProgress,
-        completedSteps: [...currentProgress.completedSteps.filter(s => s !== stepId), stepId]
+        completedSteps: [...currentProgress.completedSteps, stepId],
+        timeSpent: currentProgress.timeSpent + 30, // Estimate 30 seconds per step
       };
 
-      // Only set currentStepId if there's a next step
-      const nextStep = tutorial.steps[stepIndex + 1];
+      // Set currentStepId only if there's a next step, otherwise remove it
       if (nextStep) {
         updatedProgress.currentStepId = nextStep.id;
-      }
-
-      // Check if tutorial is completed
-      if (updatedProgress.completedSteps.length === tutorial.steps.length) {
-        updatedProgress.completedAt = new Date();
-        // Remove currentStepId when tutorial is completed
+      } else {
+        // Tutorial completed - remove currentStepId and set completion date
         delete updatedProgress.currentStepId;
-        console.log(`🎉 Tutorial ${tutorialId} completed for user ${userId}`);
+        updatedProgress.completedAt = new Date();
       }
 
       await this.saveTutorialProgress(userId, updatedProgress);
-      console.log(`✅ Tutorial step ${stepId} completed for user ${userId}`);
+
+      // Track tutorial completion with analytics
+      if (isCompleted) {
+        await OnboardingAnalytics.trackTutorialProgress(
+          userId,
+          tutorialId,
+          'tutorial_completed',
+          updatedProgress
+        );
+      }
+
+      console.log(`✅ Tutorial step ${stepId} completed for user ${userId} in tutorial ${tutorialId}`);
+      if (isCompleted) {
+        console.log(`🎉 Tutorial ${tutorialId} completed for user ${userId}`);
+      }
     } catch (error) {
       console.error('Error completing tutorial step:', error);
       throw error;
@@ -247,18 +265,31 @@ export class TutorialService {
       const userProgress = await this.getTutorialProgress(userId);
       const currentProgress = userProgress[tutorialId];
 
-      const updatedProgress: TutorialProgress = {
+      if (!currentProgress) {
+        // If tutorial wasn't started, start it first
+        await this.startTutorial(userId, tutorialId);
+      }
+
+      const skippedProgress: TutorialProgress = {
         ...currentProgress,
-        tutorialId,
-        userId,
-        startedAt: currentProgress?.startedAt || new Date(),
+        skipped: true,
         completedAt: new Date(),
-        completedSteps: [],
-        timeSpent: currentProgress?.timeSpent || 0,
-        skipped: true
+        timeSpent: currentProgress?.timeSpent || 0
       };
 
-      await this.saveTutorialProgress(userId, updatedProgress);
+      // Remove currentStepId when skipped
+      delete skippedProgress.currentStepId;
+
+      await this.saveTutorialProgress(userId, skippedProgress);
+
+      // Track tutorial skip with analytics
+      await OnboardingAnalytics.trackTutorialProgress(
+        userId,
+        tutorialId,
+        'tutorial_completed', // Treat skip as completion for analytics
+        skippedProgress
+      );
+
       console.log(`⏭️ Tutorial ${tutorialId} skipped for user ${userId}`);
     } catch (error) {
       console.error('Error skipping tutorial:', error);
@@ -266,19 +297,21 @@ export class TutorialService {
     }
   }
 
-  // Save tutorial progress to Firebase
+  // Save tutorial progress to user profile
   private static async saveTutorialProgress(userId: string, progress: TutorialProgress): Promise<void> {
     try {
       const userData = await AuthService.getUserData(userId);
-      const currentTutorialProgress = userData?.tutorialProgress || {};
+      if (!userData) {
+        throw new Error('User not found');
+      }
 
       const updatedTutorialProgress = {
-        ...currentTutorialProgress,
+        ...userData.tutorialProgress,
         [progress.tutorialId]: progress
       };
 
-      await AuthService.updateUserData(userId, { 
-        tutorialProgress: updatedTutorialProgress 
+      await AuthService.updateUserData(userId, {
+        tutorialProgress: updatedTutorialProgress
       });
     } catch (error) {
       console.error('Error saving tutorial progress:', error);
@@ -286,24 +319,27 @@ export class TutorialService {
     }
   }
 
-  // Get recommended tutorials based on user's craft specialization
+  // Get recommended tutorials for a user based on their progress and specialization
   static getRecommendedTutorials(user: User): Tutorial[] {
-    const completed = Object.keys(user.tutorialProgress || {})
-      .filter(tutorialId => {
-        const progress = user.tutorialProgress?.[tutorialId];
-        return progress?.completedAt;
-      });
+    const userProgress = user.tutorialProgress || {};
+    const completedTutorials = Object.keys(userProgress).filter(
+      tutorialId => userProgress[tutorialId].completedAt || userProgress[tutorialId].skipped
+    );
 
     return this.TUTORIALS.filter(tutorial => {
-      // Skip already completed tutorials
-      if (completed.includes(tutorial.id)) return false;
+      // Skip if already completed
+      if (completedTutorials.includes(tutorial.id)) {
+        return false;
+      }
 
       // Check prerequisites
       if (tutorial.prerequisites) {
         const hasPrerequisites = tutorial.prerequisites.every(prereq => 
-          completed.includes(prereq)
+          completedTutorials.includes(prereq)
         );
-        if (!hasPrerequisites) return false;
+        if (!hasPrerequisites) {
+          return false;
+        }
       }
 
       return true;
@@ -313,12 +349,11 @@ export class TutorialService {
   // Check if user has completed all required tutorials
   static hasCompletedRequiredTutorials(user: User): boolean {
     const requiredTutorials = this.getRequiredTutorials();
-    const tutorialProgress = user.tutorialProgress || {};
-    const completedTutorials = Object.keys(tutorialProgress)
-      .filter(tutorialId => tutorialProgress[tutorialId].completedAt);
+    const userProgress = user.tutorialProgress || {};
 
-    return requiredTutorials.every(tutorial => 
-      completedTutorials.includes(tutorial.id)
-    );
+    return requiredTutorials.every(tutorial => {
+      const progress = userProgress[tutorial.id];
+      return progress && (progress.completedAt || progress.skipped);
+    });
   }
 } 

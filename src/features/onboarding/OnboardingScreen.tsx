@@ -21,8 +21,18 @@ export function OnboardingScreen() {
       const userProgress = OnboardingService.getProgress(user);
       setProgress(userProgress);
       setIsLoading(false);
+
+      // Start onboarding analytics tracking
+      OnboardingService.startOnboarding(user.id);
     }
   }, [user]);
+
+  useEffect(() => {
+    // Track step view when current step changes
+    if (user && progress && !isLoading) {
+      OnboardingService.startStep(user.id, progress.currentStep);
+    }
+  }, [user, progress?.currentStep, isLoading]);
 
   const handleNext = async (data?: Partial<OnboardingData>) => {
     if (!user || !progress) return;
@@ -45,6 +55,15 @@ export function OnboardingScreen() {
       }
     } catch (error) {
       console.error('Error completing onboarding step:', error);
+      
+      // Track error with analytics
+      if (user) {
+        OnboardingService.trackError(
+          user.id, 
+          progress.currentStep, 
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      }
     }
   };
 
