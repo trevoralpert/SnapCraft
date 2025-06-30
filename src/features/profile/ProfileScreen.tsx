@@ -243,19 +243,19 @@ export function ProfileScreen() {
             Joined {formatFirebaseDate(user.joinedAt, 'Recently')}
           </Text>
           
-          {/* Calculated Skill Level Badge */}
+          {/* Skill Progression Button */}
           {calculatedSkillLevel && (
             <View style={styles.skillBadgeContainer}>
-              <SkillLevelBadge
-                skillLevel={calculatedSkillLevel}
-                averageScore={0}
-                showProgress={true}
-                size="large"
+              <TouchableOpacity 
+                style={styles.skillProgressionButton}
                 onPress={() => {
                   // Open scoring history modal
                   setShowScoringHistory(true);
                 }}
-              />
+                activeOpacity={0.7}
+              >
+                <Text style={styles.skillProgressionText}>🎯 Skill Progression</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1129,5 +1129,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  skillProgressionButton: {
+    padding: 12,
+    backgroundColor: '#2196F3',
+    borderRadius: 6,
+  },
+  skillProgressionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 
