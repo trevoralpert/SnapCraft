@@ -105,3 +105,4 @@ build/
 
 # Local development
 .tool-versions
+.DS_Store

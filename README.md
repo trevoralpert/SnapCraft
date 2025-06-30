@@ -149,9 +149,15 @@ React Native + Expo SDK 53
 └── 📊 Analytics: Custom analytics service with Firebase integration
 ```
 
-### **Backend Infrastructure**
+### **Deployment Architecture**
 ```yaml
-Firebase Ecosystem:
+Frontend Hosting:
+  Platform: Vercel (Global CDN)
+  Auto-Deploy: Git integration with main branch
+  Performance: Edge caching and optimization
+  SSL: Automatic HTTPS certificates
+
+Backend Infrastructure:
   Auth: Firebase Auth with Custom Claims
   Database: Firestore with Craft-Optimized Schema
   Storage: Firebase Storage for Media Files
@@ -181,6 +187,19 @@ graph LR
     F --> G[Cultural Context Integration]
     G --> H[Personalized Output]
 ```
+
+---
+
+## 📚 **Documentation**
+
+All project documentation has been organized in the [`docs/`](./docs/) directory:
+
+- **🚀 [Deployment](./docs/deployment/)** - Firebase setup and production deployment guides
+- **🔧 [Development](./docs/development/)** - Development guides, known issues, and security info  
+- **🏃‍♂️ [Sprint History](./docs/sprints/)** - Development sprint logs and checklists
+- **📚 [Archive](./docs/archive/)** - Legacy documentation and original project materials
+
+See [`docs/README.md`](./docs/README.md) for the complete documentation index.
 
 ---
 
